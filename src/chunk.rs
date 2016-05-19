@@ -65,3 +65,28 @@ pub trait Chunk {
 fn padding_size(data_size: u32) -> u32 {
     (4 - data_size % 4) % 4
 }
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct RawChunk {
+    pub id: Id,
+    pub data: Vec<u8>,
+}
+impl Chunk for RawChunk {
+    fn id(&self) -> Id {
+        self.id
+    }
+    fn decode_data<R: Read>(id: Id, mut reader: R) -> Result<Self>
+        where Self: Sized
+    {
+        let mut buf = Vec::new();
+        try!(reader.read_to_end(&mut buf));
+        Ok(RawChunk {
+            id: id,
+            data: buf,
+        })
+    }
+    fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
+        try!(writer.write_all(&self.data));
+        Ok(())
+    }
+}
