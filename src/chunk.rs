@@ -90,3 +90,30 @@ impl Chunk for RawChunk {
         Ok(())
     }
 }
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum StandardChunk {
+    Unknown(RawChunk),
+}
+impl Chunk for StandardChunk {
+    fn id(&self) -> Id {
+        use self::StandardChunk::*;
+        match *self {
+            Unknown(ref c) => c.id(),
+        }
+    }
+    fn decode_data<R: Read>(id: Id, reader: R) -> Result<Self>
+        where Self: Sized
+    {
+        use self::StandardChunk::*;
+        match id {
+            _ => Ok(Unknown(try!(RawChunk::decode_data(id, reader)))),
+        }
+    }
+    fn encode_data<W: Write>(&self, writer: W) -> Result<()> {
+        use self::StandardChunk::*;
+        match *self {
+            Unknown(ref c) => c.encode_data(writer),
+        }
+    }
+}
