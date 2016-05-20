@@ -5,5 +5,6 @@
 
 -spec hello(term()) -> ok.
 hello(Name) ->
-    io:format("Hello ~p!", [Name]),
+    Hello = fun () -> io:format("Hello ~p!", [Name]) end,
+    Hello(),
     ok.
