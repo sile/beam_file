@@ -117,7 +117,7 @@ impl Chunk for AtomChunk {
             try!(reader.read_exact(&mut buf));
 
             let name = try!(str::from_utf8(&buf).or_else(|e| invalid_data_error(e.to_string())));
-            atoms.push(parts::Atom::new(name.to_string()));
+            atoms.push(parts::Atom { name: name.to_string() });
         }
         Ok(AtomChunk { atoms: atoms })
     }
@@ -171,7 +171,7 @@ impl Chunk for CodeChunk {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct StrTChunk {
-    pub strings: Vec<u8>
+    pub strings: Vec<u8>,
 }
 impl Chunk for StrTChunk {
     fn id(&self) -> Id {
@@ -182,7 +182,7 @@ impl Chunk for StrTChunk {
     {
         let mut buf = Vec::new();
         try!(reader.read_to_end(&mut buf));
-        Ok(StrTChunk{strings: buf})
+        Ok(StrTChunk { strings: buf })
     }
     fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
         try!(writer.write_all(&self.strings));
@@ -192,7 +192,7 @@ impl Chunk for StrTChunk {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct ImpTChunk {
-    pub imports: Vec<parts::Import>
+    pub imports: Vec<parts::Import>,
 }
 impl Chunk for ImpTChunk {
     fn id(&self) -> Id {
@@ -204,12 +204,13 @@ impl Chunk for ImpTChunk {
         let count = try!(reader.read_u32::<BigEndian>()) as usize;
         let mut imports = Vec::with_capacity(count);
         for _ in 0..count {
-            let module = try!(reader.read_u32::<BigEndian>());
-            let function = try!(reader.read_u32::<BigEndian>());
-            let arity = try!(reader.read_u32::<BigEndian>());
-            imports.push(parts::Import::new(module, function, arity));
+            imports.push(parts::Import {
+                module: try!(reader.read_u32::<BigEndian>()),
+                function: try!(reader.read_u32::<BigEndian>()),
+                arity: try!(reader.read_u32::<BigEndian>()),
+            });
         }
-        Ok(ImpTChunk{imports: imports})
+        Ok(ImpTChunk { imports: imports })
     }
     fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
         for import in &self.imports {
@@ -248,7 +249,7 @@ impl Chunk for StandardChunk {
             b"Atom" => Ok(Atom(try!(AtomChunk::decode_data(id, reader)))),
             b"Code" => Ok(Code(try!(CodeChunk::decode_data(id, reader)))),
             b"StrT" => Ok(StrT(try!(StrTChunk::decode_data(id, reader)))),
-            b"ImpT" => Ok(ImpT(try!(ImpTChunk::decode_data(id, reader)))),            
+            b"ImpT" => Ok(ImpT(try!(ImpTChunk::decode_data(id, reader)))),
             _ => Ok(Unknown(try!(RawChunk::decode_data(id, reader)))),
         }
     }
@@ -258,7 +259,7 @@ impl Chunk for StandardChunk {
             Atom(ref c) => c.encode_data(writer),
             Code(ref c) => c.encode_data(writer),
             StrT(ref c) => c.encode_data(writer),
-            ImpT(ref c) => c.encode_data(writer),            
+            ImpT(ref c) => c.encode_data(writer),
             Unknown(ref c) => c.encode_data(writer),
         }
     }
