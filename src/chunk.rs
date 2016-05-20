@@ -1,3 +1,5 @@
+use std::str;
+use std::io;
 use std::io::Result;
 use std::io::Read;
 use std::io::Write;
@@ -5,6 +7,7 @@ use std::io::Cursor;
 use byteorder::ReadBytesExt;
 use byteorder::WriteBytesExt;
 use byteorder::BigEndian;
+use parts;
 
 pub type Id = [u8; 4];
 
@@ -66,6 +69,10 @@ fn padding_size(data_size: u32) -> u32 {
     (4 - data_size % 4) % 4
 }
 
+fn invalid_data_error<T>(description: String) -> io::Result<T> {
+    Err(io::Error::new(io::ErrorKind::InvalidData, description))
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct RawChunk {
     pub id: Id,
@@ -92,13 +99,48 @@ impl Chunk for RawChunk {
 }
 
 #[derive(Debug, PartialEq, Eq)]
+pub struct AtomChunk {
+    pub atoms: Vec<parts::Atom>,
+}
+impl Chunk for AtomChunk {
+    fn id(&self) -> Id {
+        *b"Atom"
+    }
+    fn decode_data<R: Read>(_id: Id, mut reader: R) -> Result<Self>
+        where Self: Sized
+    {
+        let count = try!(reader.read_u32::<BigEndian>()) as usize;
+        let mut atoms = Vec::with_capacity(count);
+        for _ in 0..count {
+            let len = try!(reader.read_u8()) as usize;
+            let mut buf = vec![0; len];
+            try!(reader.read_exact(&mut buf));
+
+            let name = try!(str::from_utf8(&buf).or_else(|e| invalid_data_error(e.to_string())));
+            atoms.push(parts::Atom::new(name.to_string()));
+        }
+        Ok(AtomChunk { atoms: atoms })
+    }
+    fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
+        for atom in &self.atoms {
+            assert!(atom.name.len() < 0x100);
+            try!(writer.write_u8(atom.name.len() as u8));
+            try!(writer.write_all(atom.name.as_bytes()));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub enum StandardChunk {
+    Atom(AtomChunk),
     Unknown(RawChunk),
 }
 impl Chunk for StandardChunk {
     fn id(&self) -> Id {
         use self::StandardChunk::*;
         match *self {
+            Atom(ref c) => c.id(),
             Unknown(ref c) => c.id(),
         }
     }
@@ -106,13 +148,15 @@ impl Chunk for StandardChunk {
         where Self: Sized
     {
         use self::StandardChunk::*;
-        match id {
+        match &id {
+            b"Atom" => Ok(Atom(try!(AtomChunk::decode_data(id, reader)))),
             _ => Ok(Unknown(try!(RawChunk::decode_data(id, reader)))),
         }
     }
     fn encode_data<W: Write>(&self, writer: W) -> Result<()> {
         use self::StandardChunk::*;
         match *self {
+            Atom(ref c) => c.encode_data(writer),
             Unknown(ref c) => c.encode_data(writer),
         }
     }

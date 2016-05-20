@@ -17,10 +17,6 @@ pub struct BeamFile<C> {
 }
 
 impl<C: Chunk> BeamFile<C> {
-    pub fn get(&self, chunk_id: chunk::Id) -> Option<&C> {
-        self.chunks.iter().find(|c| c.id() == chunk_id)
-    }
-
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let f = try!(File::open(path));
         Self::from_reader(f)
