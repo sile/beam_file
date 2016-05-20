@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use beam_file::RawBeamFile;
 use beam_file::StandardBeamFile;
 use beam_file::chunk::Chunk;
+use beam_file::parts;
 
 #[test]
 fn raw_chunks() {
@@ -36,6 +37,7 @@ fn standard_chunks() {
                collect_id(&beam.chunks));
 
     // Atom Chunk
+    let atoms = &find_chunk!(beam, Atom).atoms;
     assert_eq!(vec!["test",
                     "hello",
                     "io",
@@ -44,7 +46,7 @@ fn standard_chunks() {
                     "module_info",
                     "erlang",
                     "get_module_info"],
-               find_chunk!(beam, Atom).atoms.iter().map(|a| &a.name).collect::<Vec<_>>());
+               atoms.iter().map(|a| &a.name).collect::<Vec<_>>());
 
     // Code Chunk
     let code = find_chunk!(beam, Code);
@@ -58,6 +60,17 @@ fn standard_chunks() {
     // StrT Chunk
     let strt = find_chunk!(beam, StrT);
     assert_eq!(0, strt.strings.len());
+
+    // ImpT Chunk
+    let atom_name = |id| &atoms[id as usize - 1].name;
+    let import_to_string = |i: &parts::Import| {
+        format!("{}:{}/{}",
+                atom_name(i.module),
+                atom_name(i.function),
+                i.arity)
+    };
+    assert_eq!(vec!["io:format/2", "erlang:get_module_info/1", "erlang:get_module_info/2"],
+               find_chunk!(beam, ImpT).imports.iter().map(import_to_string).collect::<Vec<_>>());
 }
 
 fn test_file(name: &str) -> PathBuf {

@@ -191,10 +191,42 @@ impl Chunk for StrTChunk {
 }
 
 #[derive(Debug, PartialEq, Eq)]
+pub struct ImpTChunk {
+    pub imports: Vec<parts::Import>
+}
+impl Chunk for ImpTChunk {
+    fn id(&self) -> Id {
+        *b"ImpT"
+    }
+    fn decode_data<R: Read>(_id: Id, mut reader: R) -> Result<Self>
+        where Self: Sized
+    {
+        let count = try!(reader.read_u32::<BigEndian>()) as usize;
+        let mut imports = Vec::with_capacity(count);
+        for _ in 0..count {
+            let module = try!(reader.read_u32::<BigEndian>());
+            let function = try!(reader.read_u32::<BigEndian>());
+            let arity = try!(reader.read_u32::<BigEndian>());
+            imports.push(parts::Import::new(module, function, arity));
+        }
+        Ok(ImpTChunk{imports: imports})
+    }
+    fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
+        for import in &self.imports {
+            try!(writer.write_u32::<BigEndian>(import.module));
+            try!(writer.write_u32::<BigEndian>(import.function));
+            try!(writer.write_u32::<BigEndian>(import.arity));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub enum StandardChunk {
     Atom(AtomChunk),
     Code(CodeChunk),
     StrT(StrTChunk),
+    ImpT(ImpTChunk),
     Unknown(RawChunk),
 }
 impl Chunk for StandardChunk {
@@ -204,6 +236,7 @@ impl Chunk for StandardChunk {
             Atom(ref c) => c.id(),
             Code(ref c) => c.id(),
             StrT(ref c) => c.id(),
+            ImpT(ref c) => c.id(),
             Unknown(ref c) => c.id(),
         }
     }
@@ -215,6 +248,7 @@ impl Chunk for StandardChunk {
             b"Atom" => Ok(Atom(try!(AtomChunk::decode_data(id, reader)))),
             b"Code" => Ok(Code(try!(CodeChunk::decode_data(id, reader)))),
             b"StrT" => Ok(StrT(try!(StrTChunk::decode_data(id, reader)))),
+            b"ImpT" => Ok(ImpT(try!(ImpTChunk::decode_data(id, reader)))),            
             _ => Ok(Unknown(try!(RawChunk::decode_data(id, reader)))),
         }
     }
@@ -223,7 +257,8 @@ impl Chunk for StandardChunk {
         match *self {
             Atom(ref c) => c.encode_data(writer),
             Code(ref c) => c.encode_data(writer),
-            StrT(ref c) => c.encode_data(writer),            
+            StrT(ref c) => c.encode_data(writer),
+            ImpT(ref c) => c.encode_data(writer),            
             Unknown(ref c) => c.encode_data(writer),
         }
     }
