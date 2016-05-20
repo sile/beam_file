@@ -45,6 +45,15 @@ fn standard_chunks() {
                     "erlang",
                     "get_module_info"],
                find_chunk!(beam, Atom).atoms.iter().map(|a| &a.name).collect::<Vec<_>>());
+
+    // Code Chunk
+    let code = find_chunk!(beam, Code);
+    assert_eq!(16, code.info_size);
+    assert_eq!(0, code.version);
+    assert_eq!(153, code.opcode_max);
+    assert_eq!(7, code.label_count);
+    assert_eq!(3, code.function_count);
+    assert_eq!(73, code.bytecode.len());
 }
 
 fn test_file(name: &str) -> PathBuf {

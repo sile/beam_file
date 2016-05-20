@@ -8,7 +8,6 @@ use std::io::Cursor;
 use byteorder::ReadBytesExt;
 use byteorder::WriteBytesExt;
 use byteorder::BigEndian;
-use chunk;
 use chunk::Chunk;
 
 #[derive(Debug)]
