@@ -1,4 +1,5 @@
 extern crate byteorder;
+extern crate flate2;
 
 pub mod chunk;
 pub mod parts;

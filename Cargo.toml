@@ -5,3 +5,4 @@ authors = ["Takeru Ohta <phjgt308@gmail.com>"]
 
 [dependencies]
 byteorder = "*"
+flate2 = "*"
