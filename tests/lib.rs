@@ -17,8 +17,8 @@ fn raw_chunks() {
     let beam = RawBeamFile::from_file(test_file("test.beam")).unwrap();
 
     // Chunk List
-    assert_eq!(vec!["Atom", "Code", "StrT", "ImpT", "ExpT", "LitT", "LocT", "Attr", "CInf",
-                    "Abst", "Line"],
+    assert_eq!(vec!["Atom", "Code", "StrT", "ImpT", "ExpT", "FunT", "LitT", "LocT", "Attr",
+                    "CInf", "Abst", "Line"],
                collect_id(&beam.chunks));
 }
 
@@ -38,20 +38,21 @@ fn standard_chunks() {
     let beam = StandardBeamFile::from_file(test_file("test.beam")).unwrap();
 
     // Chunk List
-    assert_eq!(vec!["Atom", "Code", "StrT", "ImpT", "ExpT", "LitT", "LocT", "Attr", "CInf",
-                    "Abst", "Line"],
+    assert_eq!(vec!["Atom", "Code", "StrT", "ImpT", "ExpT", "FunT", "LitT", "LocT", "Attr",
+                    "CInf", "Abst", "Line"],
                collect_id(&beam.chunks));
 
     // Atom Chunk
     let atoms = &find_chunk!(beam, Atom).atoms;
     assert_eq!(vec!["test",
                     "hello",
-                    "io",
-                    "format",
                     "ok",
                     "module_info",
                     "erlang",
-                    "get_module_info"],
+                    "get_module_info",
+                    "-hello/1-fun-0-",
+                    "io",
+                    "format"],
                atoms.iter().map(|a| &a.name).collect::<Vec<_>>());
 
     // Code Chunk
@@ -59,9 +60,9 @@ fn standard_chunks() {
     assert_eq!(16, code.info_size);
     assert_eq!(0, code.version);
     assert_eq!(153, code.opcode_max);
-    assert_eq!(7, code.label_count);
-    assert_eq!(3, code.function_count);
-    assert_eq!(73, code.bytecode.len());
+    assert_eq!(9, code.label_count);
+    assert_eq!(4, code.function_count);
+    assert_eq!(91, code.bytecode.len());
 
     // StrT Chunk
     let strt = find_chunk!(beam, StrT);
@@ -75,7 +76,7 @@ fn standard_chunks() {
                 atom_name(i.function),
                 i.arity)
     };
-    assert_eq!(vec!["io:format/2", "erlang:get_module_info/1", "erlang:get_module_info/2"],
+    assert_eq!(vec!["erlang:get_module_info/1", "erlang:get_module_info/2", "io:format/2"],
                find_chunk!(beam, ImpT).imports.iter().map(import_to_string).collect::<Vec<_>>());
 
     // ExpT Chunk
@@ -87,6 +88,12 @@ fn standard_chunks() {
     // LitT Chunk
     assert_eq!(vec![13],
                find_chunk!(beam, LitT).literals.iter().map(|l| l.len()).collect::<Vec<_>>());
+
+    // LocT Chunk
+    let local_to_string =
+        |l: &parts::Local| format!("{}/{}@{}", atom_name(l.function), l.arity, l.label);
+    assert_eq!(vec!["-hello/1-fun-0-/1@8"],
+               find_chunk!(beam, LocT).locals.iter().map(local_to_string).collect::<Vec<_>>());
 }
 
 enum EncodeTestChunk {

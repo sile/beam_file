@@ -20,3 +20,10 @@ pub struct Export {
     pub arity: Arity,
     pub label: u32,
 }
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct Local {
+    pub function: AtomId,
+    pub arity: Arity,
+    pub label: u32,
+}

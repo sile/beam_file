@@ -300,6 +300,39 @@ impl Chunk for LitTChunk {
 }
 
 #[derive(Debug, PartialEq, Eq)]
+pub struct LocTChunk {
+    pub locals: Vec<parts::Local>,
+}
+impl Chunk for LocTChunk {
+    fn id(&self) -> Id {
+        *b"LocT"
+    }
+    fn decode_data<R: Read>(_id: Id, mut reader: R) -> Result<Self>
+        where Self: Sized
+    {
+        let count = try!(reader.read_u32::<BigEndian>()) as usize;
+        let mut locals = Vec::with_capacity(count);
+        for _ in 0..count {
+            locals.push(parts::Local {
+                function: try!(reader.read_u32::<BigEndian>()),
+                arity: try!(reader.read_u32::<BigEndian>()),
+                label: try!(reader.read_u32::<BigEndian>()),
+            });
+        }
+        Ok(LocTChunk { locals: locals })
+    }
+    fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
+        try!(writer.write_u32::<BigEndian>(self.locals.len() as u32));
+        for export in &self.locals {
+            try!(writer.write_u32::<BigEndian>(export.function));
+            try!(writer.write_u32::<BigEndian>(export.arity));
+            try!(writer.write_u32::<BigEndian>(export.label));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub enum StandardChunk {
     Atom(AtomChunk),
     Code(CodeChunk),
@@ -307,6 +340,7 @@ pub enum StandardChunk {
     ImpT(ImpTChunk),
     ExpT(ExpTChunk),
     LitT(LitTChunk),
+    LocT(LocTChunk),
     Unknown(RawChunk),
 }
 impl Chunk for StandardChunk {
@@ -319,6 +353,7 @@ impl Chunk for StandardChunk {
             ImpT(ref c) => c.id(),
             ExpT(ref c) => c.id(),
             LitT(ref c) => c.id(),
+            LocT(ref c) => c.id(),
             Unknown(ref c) => c.id(),
         }
     }
@@ -333,6 +368,7 @@ impl Chunk for StandardChunk {
             b"ImpT" => Ok(ImpT(try!(ImpTChunk::decode_data(id, reader)))),
             b"ExpT" => Ok(ExpT(try!(ExpTChunk::decode_data(id, reader)))),
             b"LitT" => Ok(LitT(try!(LitTChunk::decode_data(id, reader)))),
+            b"LocT" => Ok(LocT(try!(LocTChunk::decode_data(id, reader)))),
             _ => Ok(Unknown(try!(RawChunk::decode_data(id, reader)))),
         }
     }
@@ -345,6 +381,7 @@ impl Chunk for StandardChunk {
             ImpT(ref c) => c.encode_data(writer),
             ExpT(ref c) => c.encode_data(writer),
             LitT(ref c) => c.encode_data(writer),
+            LocT(ref c) => c.encode_data(writer),
             Unknown(ref c) => c.encode_data(writer),
         }
     }
