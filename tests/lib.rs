@@ -71,6 +71,12 @@ fn standard_chunks() {
     };
     assert_eq!(vec!["io:format/2", "erlang:get_module_info/1", "erlang:get_module_info/2"],
                find_chunk!(beam, ImpT).imports.iter().map(import_to_string).collect::<Vec<_>>());
+
+    // ExpT Chunk
+    let export_to_string =
+        |e: &parts::Export| format!("{}/{}@{}", atom_name(e.function), e.arity, e.label);
+    assert_eq!(vec!["module_info/1@6", "module_info/0@4", "hello/1@2"],
+               find_chunk!(beam, ExpT).exports.iter().map(export_to_string).collect::<Vec<_>>());
 }
 
 fn test_file(name: &str) -> PathBuf {

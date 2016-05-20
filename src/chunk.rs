@@ -223,11 +223,44 @@ impl Chunk for ImpTChunk {
 }
 
 #[derive(Debug, PartialEq, Eq)]
+pub struct ExpTChunk {
+    pub exports: Vec<parts::Export>,
+}
+impl Chunk for ExpTChunk {
+    fn id(&self) -> Id {
+        *b"ExpT"
+    }
+    fn decode_data<R: Read>(_id: Id, mut reader: R) -> Result<Self>
+        where Self: Sized
+    {
+        let count = try!(reader.read_u32::<BigEndian>()) as usize;
+        let mut exports = Vec::with_capacity(count);
+        for _ in 0..count {
+            exports.push(parts::Export {
+                function: try!(reader.read_u32::<BigEndian>()),
+                arity: try!(reader.read_u32::<BigEndian>()),
+                label: try!(reader.read_u32::<BigEndian>()),
+            });
+        }
+        Ok(ExpTChunk { exports: exports })
+    }
+    fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
+        for export in &self.exports {
+            try!(writer.write_u32::<BigEndian>(export.function));
+            try!(writer.write_u32::<BigEndian>(export.arity));
+            try!(writer.write_u32::<BigEndian>(export.label));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub enum StandardChunk {
     Atom(AtomChunk),
     Code(CodeChunk),
     StrT(StrTChunk),
     ImpT(ImpTChunk),
+    ExpT(ExpTChunk),
     Unknown(RawChunk),
 }
 impl Chunk for StandardChunk {
@@ -238,6 +271,7 @@ impl Chunk for StandardChunk {
             Code(ref c) => c.id(),
             StrT(ref c) => c.id(),
             ImpT(ref c) => c.id(),
+            ExpT(ref c) => c.id(),
             Unknown(ref c) => c.id(),
         }
     }
@@ -250,6 +284,7 @@ impl Chunk for StandardChunk {
             b"Code" => Ok(Code(try!(CodeChunk::decode_data(id, reader)))),
             b"StrT" => Ok(StrT(try!(StrTChunk::decode_data(id, reader)))),
             b"ImpT" => Ok(ImpT(try!(ImpTChunk::decode_data(id, reader)))),
+            b"ExpT" => Ok(ExpT(try!(ExpTChunk::decode_data(id, reader)))),
             _ => Ok(Unknown(try!(RawChunk::decode_data(id, reader)))),
         }
     }
@@ -260,6 +295,7 @@ impl Chunk for StandardChunk {
             Code(ref c) => c.encode_data(writer),
             StrT(ref c) => c.encode_data(writer),
             ImpT(ref c) => c.encode_data(writer),
+            ExpT(ref c) => c.encode_data(writer),
             Unknown(ref c) => c.encode_data(writer),
         }
     }
