@@ -54,6 +54,10 @@ fn standard_chunks() {
     assert_eq!(7, code.label_count);
     assert_eq!(3, code.function_count);
     assert_eq!(73, code.bytecode.len());
+
+    // StrT Chunk
+    let strt = find_chunk!(beam, StrT);
+    assert_eq!(0, strt.strings.len());
 }
 
 fn test_file(name: &str) -> PathBuf {

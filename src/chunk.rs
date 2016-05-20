@@ -170,9 +170,31 @@ impl Chunk for CodeChunk {
 }
 
 #[derive(Debug, PartialEq, Eq)]
+pub struct StrTChunk {
+    pub strings: Vec<u8>
+}
+impl Chunk for StrTChunk {
+    fn id(&self) -> Id {
+        *b"StrT"
+    }
+    fn decode_data<R: Read>(_id: Id, mut reader: R) -> Result<Self>
+        where Self: Sized
+    {
+        let mut buf = Vec::new();
+        try!(reader.read_to_end(&mut buf));
+        Ok(StrTChunk{strings: buf})
+    }
+    fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
+        try!(writer.write_all(&self.strings));
+        Ok(())
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub enum StandardChunk {
     Atom(AtomChunk),
     Code(CodeChunk),
+    StrT(StrTChunk),
     Unknown(RawChunk),
 }
 impl Chunk for StandardChunk {
@@ -181,6 +203,7 @@ impl Chunk for StandardChunk {
         match *self {
             Atom(ref c) => c.id(),
             Code(ref c) => c.id(),
+            StrT(ref c) => c.id(),
             Unknown(ref c) => c.id(),
         }
     }
@@ -191,6 +214,7 @@ impl Chunk for StandardChunk {
         match &id {
             b"Atom" => Ok(Atom(try!(AtomChunk::decode_data(id, reader)))),
             b"Code" => Ok(Code(try!(CodeChunk::decode_data(id, reader)))),
+            b"StrT" => Ok(StrT(try!(StrTChunk::decode_data(id, reader)))),
             _ => Ok(Unknown(try!(RawChunk::decode_data(id, reader)))),
         }
     }
@@ -199,6 +223,7 @@ impl Chunk for StandardChunk {
         match *self {
             Atom(ref c) => c.encode_data(writer),
             Code(ref c) => c.encode_data(writer),
+            StrT(ref c) => c.encode_data(writer),            
             Unknown(ref c) => c.encode_data(writer),
         }
     }
