@@ -107,6 +107,9 @@ fn standard_chunks() {
         |l: &parts::Local| format!("{}/{}@{}", atom_name(l.function), l.arity, l.label);
     assert_eq!(vec!["-hello/1-fun-0-/1@8"],
                find_chunk!(beam, LocT).locals.iter().map(local_to_string).collect::<Vec<_>>());
+
+    // Attr Chunk
+    assert_eq!(40, find_chunk!(beam, Attr).term.len());
 }
 
 enum EncodeTestChunk {
