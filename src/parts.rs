@@ -27,3 +27,13 @@ pub struct Local {
     pub arity: Arity,
     pub label: u32,
 }
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct Function {
+    pub function: AtomId,
+    pub arity: Arity,
+    pub label: u32,
+    pub index: u32,
+    pub num_free: u32,
+    pub old_uniq: u32,
+}

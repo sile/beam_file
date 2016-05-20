@@ -85,6 +85,19 @@ fn standard_chunks() {
     assert_eq!(vec!["module_info/1@6", "module_info/0@4", "hello/1@2"],
                find_chunk!(beam, ExpT).exports.iter().map(export_to_string).collect::<Vec<_>>());
 
+    // FunT Chunk
+    let fun_to_string = |f: &parts::Function| {
+        format!("{}/{}@{}.{}.{}.{}",
+                atom_name(f.function),
+                f.arity,
+                f.label,
+                f.index,
+                f.num_free,
+                f.old_uniq)
+    };
+    assert_eq!(vec!["-hello/1-fun-0-/1@8.0.1.38182595"],
+               find_chunk!(beam, FunT).functions.iter().map(fun_to_string).collect::<Vec<_>>());
+
     // LitT Chunk
     assert_eq!(vec![13],
                find_chunk!(beam, LitT).literals.iter().map(|l| l.len()).collect::<Vec<_>>());

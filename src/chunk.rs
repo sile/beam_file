@@ -323,10 +323,49 @@ impl Chunk for LocTChunk {
     }
     fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
         try!(writer.write_u32::<BigEndian>(self.locals.len() as u32));
-        for export in &self.locals {
-            try!(writer.write_u32::<BigEndian>(export.function));
-            try!(writer.write_u32::<BigEndian>(export.arity));
-            try!(writer.write_u32::<BigEndian>(export.label));
+        for local in &self.locals {
+            try!(writer.write_u32::<BigEndian>(local.function));
+            try!(writer.write_u32::<BigEndian>(local.arity));
+            try!(writer.write_u32::<BigEndian>(local.label));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct FunTChunk {
+    pub functions: Vec<parts::Function>,
+}
+impl Chunk for FunTChunk {
+    fn id(&self) -> Id {
+        *b"FunT"
+    }
+    fn decode_data<R: Read>(_id: Id, mut reader: R) -> Result<Self>
+        where Self: Sized
+    {
+        let count = try!(reader.read_u32::<BigEndian>()) as usize;
+        let mut functions = Vec::with_capacity(count);
+        for _ in 0..count {
+            functions.push(parts::Function {
+                function: try!(reader.read_u32::<BigEndian>()),
+                arity: try!(reader.read_u32::<BigEndian>()),
+                label: try!(reader.read_u32::<BigEndian>()),
+                index: try!(reader.read_u32::<BigEndian>()),
+                num_free: try!(reader.read_u32::<BigEndian>()),
+                old_uniq: try!(reader.read_u32::<BigEndian>()),
+            });
+        }
+        Ok(FunTChunk { functions: functions })
+    }
+    fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
+        try!(writer.write_u32::<BigEndian>(self.functions.len() as u32));
+        for f in &self.functions {
+            try!(writer.write_u32::<BigEndian>(f.function));
+            try!(writer.write_u32::<BigEndian>(f.arity));
+            try!(writer.write_u32::<BigEndian>(f.label));
+            try!(writer.write_u32::<BigEndian>(f.index));
+            try!(writer.write_u32::<BigEndian>(f.num_free));
+            try!(writer.write_u32::<BigEndian>(f.old_uniq));
         }
         Ok(())
     }
@@ -341,6 +380,7 @@ pub enum StandardChunk {
     ExpT(ExpTChunk),
     LitT(LitTChunk),
     LocT(LocTChunk),
+    FunT(FunTChunk),
     Unknown(RawChunk),
 }
 impl Chunk for StandardChunk {
@@ -354,6 +394,7 @@ impl Chunk for StandardChunk {
             ExpT(ref c) => c.id(),
             LitT(ref c) => c.id(),
             LocT(ref c) => c.id(),
+            FunT(ref c) => c.id(),
             Unknown(ref c) => c.id(),
         }
     }
@@ -369,6 +410,7 @@ impl Chunk for StandardChunk {
             b"ExpT" => Ok(ExpT(try!(ExpTChunk::decode_data(id, reader)))),
             b"LitT" => Ok(LitT(try!(LitTChunk::decode_data(id, reader)))),
             b"LocT" => Ok(LocT(try!(LocTChunk::decode_data(id, reader)))),
+            b"FunT" => Ok(FunT(try!(FunTChunk::decode_data(id, reader)))),
             _ => Ok(Unknown(try!(RawChunk::decode_data(id, reader)))),
         }
     }
@@ -382,6 +424,7 @@ impl Chunk for StandardChunk {
             ExpT(ref c) => c.encode_data(writer),
             LitT(ref c) => c.encode_data(writer),
             LocT(ref c) => c.encode_data(writer),
+            FunT(ref c) => c.encode_data(writer),
             Unknown(ref c) => c.encode_data(writer),
         }
     }
