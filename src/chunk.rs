@@ -7,6 +7,9 @@ use std::io::Cursor;
 use byteorder::ReadBytesExt;
 use byteorder::WriteBytesExt;
 use byteorder::BigEndian;
+use flate2;
+use flate2::read::ZlibDecoder;
+use flate2::write::ZlibEncoder;
 use parts;
 
 pub type Id = [u8; 4];
@@ -122,6 +125,7 @@ impl Chunk for AtomChunk {
         Ok(AtomChunk { atoms: atoms })
     }
     fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
+        try!(writer.write_u32::<BigEndian>(self.atoms.len() as u32));
         for atom in &self.atoms {
             assert!(atom.name.len() < 0x100);
             try!(writer.write_u8(atom.name.len() as u8));
@@ -213,6 +217,7 @@ impl Chunk for ImpTChunk {
         Ok(ImpTChunk { imports: imports })
     }
     fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
+        try!(writer.write_u32::<BigEndian>(self.imports.len() as u32));
         for import in &self.imports {
             try!(writer.write_u32::<BigEndian>(import.module));
             try!(writer.write_u32::<BigEndian>(import.function));
@@ -245,11 +250,51 @@ impl Chunk for ExpTChunk {
         Ok(ExpTChunk { exports: exports })
     }
     fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
+        try!(writer.write_u32::<BigEndian>(self.exports.len() as u32));
         for export in &self.exports {
             try!(writer.write_u32::<BigEndian>(export.function));
             try!(writer.write_u32::<BigEndian>(export.arity));
             try!(writer.write_u32::<BigEndian>(export.label));
         }
+        Ok(())
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct LitTChunk {
+    pub literals: Vec<parts::ExternalTermFormatBinary>,
+}
+impl Chunk for LitTChunk {
+    fn id(&self) -> Id {
+        *b"LitT"
+    }
+    fn decode_data<R: Read>(_id: Id, mut reader: R) -> Result<Self>
+        where Self: Sized
+    {
+        let _uncompressed_size = try!(reader.read_u32::<BigEndian>());
+        let mut decoder = ZlibDecoder::new(reader);
+
+        let count = try!(decoder.read_u32::<BigEndian>()) as usize;
+        let mut literals = Vec::with_capacity(count);
+        for _ in 0..count {
+            let literal_size = try!(decoder.read_u32::<BigEndian>()) as usize;
+            let mut buf = vec![0; literal_size];
+            try!(decoder.read_exact(&mut buf));
+            literals.push(buf);
+        }
+        Ok(LitTChunk { literals: literals })
+    }
+    fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
+        let uncompressed_size = self.literals.iter().fold(4, |acc, l| acc + 4 + l.len() as u32);
+        try!(writer.write_u32::<BigEndian>(uncompressed_size));
+
+        let mut encoder = ZlibEncoder::new(writer, flate2::Compression::Default);
+        try!(encoder.write_u32::<BigEndian>(self.literals.len() as u32));
+        for literal in &self.literals {
+            try!(encoder.write_u32::<BigEndian>(literal.len() as u32));
+            try!(encoder.write_all(&literal));
+        }
+        try!(encoder.finish());
         Ok(())
     }
 }
@@ -261,6 +306,7 @@ pub enum StandardChunk {
     StrT(StrTChunk),
     ImpT(ImpTChunk),
     ExpT(ExpTChunk),
+    LitT(LitTChunk),
     Unknown(RawChunk),
 }
 impl Chunk for StandardChunk {
@@ -272,6 +318,7 @@ impl Chunk for StandardChunk {
             StrT(ref c) => c.id(),
             ImpT(ref c) => c.id(),
             ExpT(ref c) => c.id(),
+            LitT(ref c) => c.id(),
             Unknown(ref c) => c.id(),
         }
     }
@@ -285,6 +332,7 @@ impl Chunk for StandardChunk {
             b"StrT" => Ok(StrT(try!(StrTChunk::decode_data(id, reader)))),
             b"ImpT" => Ok(ImpT(try!(ImpTChunk::decode_data(id, reader)))),
             b"ExpT" => Ok(ExpT(try!(ExpTChunk::decode_data(id, reader)))),
+            b"LitT" => Ok(LitT(try!(LitTChunk::decode_data(id, reader)))),
             _ => Ok(Unknown(try!(RawChunk::decode_data(id, reader)))),
         }
     }
@@ -296,6 +344,7 @@ impl Chunk for StandardChunk {
             StrT(ref c) => c.encode_data(writer),
             ImpT(ref c) => c.encode_data(writer),
             ExpT(ref c) => c.encode_data(writer),
+            LitT(ref c) => c.encode_data(writer),
             Unknown(ref c) => c.encode_data(writer),
         }
     }

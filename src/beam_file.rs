@@ -54,7 +54,7 @@ impl<C: Chunk> BeamFile<C> {
             try!(chunk.encode(&mut buf));
         }
 
-        let header = Header::new(buf.len() as u32);
+        let header = Header::new(buf.len() as u32 + 4);
         try!(header.to_writer(&mut writer));
         try!(writer.write_all(&buf));
         Ok(())

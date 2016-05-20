@@ -1,8 +1,14 @@
 extern crate beam_file;
 
+use std::io::Read;
+use std::io::Write;
+use std::io::Result;
 use std::path::PathBuf;
+use std::fs::File;
+use beam_file::BeamFile;
 use beam_file::RawBeamFile;
 use beam_file::StandardBeamFile;
+use beam_file::chunk;
 use beam_file::chunk::Chunk;
 use beam_file::parts;
 
@@ -77,6 +83,54 @@ fn standard_chunks() {
         |e: &parts::Export| format!("{}/{}@{}", atom_name(e.function), e.arity, e.label);
     assert_eq!(vec!["module_info/1@6", "module_info/0@4", "hello/1@2"],
                find_chunk!(beam, ExpT).exports.iter().map(export_to_string).collect::<Vec<_>>());
+
+    // LitT Chunk
+    assert_eq!(vec![13],
+               find_chunk!(beam, LitT).literals.iter().map(|l| l.len()).collect::<Vec<_>>());
+}
+
+enum EncodeTestChunk {
+    Idempotent(chunk::StandardChunk),
+    Other(chunk::RawChunk),
+}
+impl chunk::Chunk for EncodeTestChunk {
+    fn id(&self) -> chunk::Id {
+        use self::EncodeTestChunk::*;
+        match *self {
+            Idempotent(ref c) => c.id(),
+            Other(ref c) => c.id(),
+        }
+    }
+    fn decode_data<R: Read>(id: chunk::Id, reader: R) -> Result<Self>
+        where Self: Sized
+    {
+        use self::EncodeTestChunk::*;
+        match &id {
+            b"LitT" => Ok(Other(try!(chunk::RawChunk::decode_data(id, reader)))),
+            _ => Ok(Idempotent(try!(chunk::StandardChunk::decode_data(id, reader)))),
+        }
+    }
+    fn encode_data<W: Write>(&self, writer: W) -> Result<()> {
+        use self::EncodeTestChunk::*;
+        match *self {
+            Idempotent(ref c) => c.encode_data(writer),
+            Other(ref c) => c.encode_data(writer),
+        }
+    }
+}
+
+#[test]
+fn encode_chunks() {
+    let mut original = Vec::new();
+    std::io::copy(&mut File::open(test_file("test.beam")).unwrap(),
+                  &mut original)
+        .unwrap();
+
+    let beam = BeamFile::<EncodeTestChunk>::from_reader(std::io::Cursor::new(&original)).unwrap();
+    let mut encoded = Vec::new();
+    beam.to_writer(&mut encoded).unwrap();
+
+    assert_eq!(original, encoded);
 }
 
 fn test_file(name: &str) -> PathBuf {

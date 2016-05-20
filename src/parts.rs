@@ -1,5 +1,6 @@
 pub type AtomId = u32;
 pub type Arity = u32;
+pub type ExternalTermFormatBinary = Vec<u8>;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Atom {
