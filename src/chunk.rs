@@ -393,6 +393,27 @@ impl Chunk for AttrChunk {
 }
 
 #[derive(Debug, PartialEq, Eq)]
+pub struct CInfChunk {
+    pub term: parts::ExternalTermFormatBinary,
+}
+impl Chunk for CInfChunk {
+    fn id(&self) -> Id {
+        *b"CInf"
+    }
+    fn decode_data<R: Read>(_id: Id, mut reader: R) -> Result<Self>
+        where Self: Sized
+    {
+        let mut buf = Vec::new();
+        try!(reader.read_to_end(&mut buf));
+        Ok(CInfChunk { term: buf })
+    }
+    fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
+        try!(writer.write_all(&self.term));
+        Ok(())
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub enum StandardChunk {
     Atom(AtomChunk),
     Code(CodeChunk),
@@ -403,6 +424,7 @@ pub enum StandardChunk {
     LocT(LocTChunk),
     FunT(FunTChunk),
     Attr(AttrChunk),
+    CInf(CInfChunk),
     Unknown(RawChunk),
 }
 impl Chunk for StandardChunk {
@@ -418,6 +440,7 @@ impl Chunk for StandardChunk {
             LocT(ref c) => c.id(),
             FunT(ref c) => c.id(),
             Attr(ref c) => c.id(),
+            CInf(ref c) => c.id(),
             Unknown(ref c) => c.id(),
         }
     }
@@ -435,6 +458,7 @@ impl Chunk for StandardChunk {
             b"LocT" => Ok(LocT(try!(LocTChunk::decode_data(id, reader)))),
             b"FunT" => Ok(FunT(try!(FunTChunk::decode_data(id, reader)))),
             b"Attr" => Ok(Attr(try!(AttrChunk::decode_data(id, reader)))),
+            b"CInf" => Ok(CInf(try!(CInfChunk::decode_data(id, reader)))),
             _ => Ok(Unknown(try!(RawChunk::decode_data(id, reader)))),
         }
     }
@@ -450,6 +474,7 @@ impl Chunk for StandardChunk {
             LocT(ref c) => c.encode_data(writer),
             FunT(ref c) => c.encode_data(writer),
             Attr(ref c) => c.encode_data(writer),
+            CInf(ref c) => c.encode_data(writer),
             Unknown(ref c) => c.encode_data(writer),
         }
     }

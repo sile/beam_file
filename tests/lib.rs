@@ -110,6 +110,9 @@ fn standard_chunks() {
 
     // Attr Chunk
     assert_eq!(40, find_chunk!(beam, Attr).term.len());
+
+    // CInf Chunk
+    assert_eq!(209, find_chunk!(beam, CInf).term.len());
 }
 
 enum EncodeTestChunk {
