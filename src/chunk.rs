@@ -1,5 +1,10 @@
+//! The `Chunk` trait and implementations of commonly used chunks.
+//!
+//! # Reference
+//! - [BEAM File Format]
+//!   (http://rnyingma.synrc.com/publications/cat/Functional%20Languages/Erlang/BEAM.pdf)
+//! - [beam_lib](http://erlang.org/doc/man/beam_lib.html)
 use std::str;
-use std::io;
 use std::io::Result;
 use std::io::Read;
 use std::io::Write;
@@ -12,73 +17,62 @@ use flate2::read::ZlibDecoder;
 use flate2::write::ZlibEncoder;
 use parts;
 
+/// The identifier which indicates the type of a chunk.
 pub type Id = [u8; 4];
 
-struct Header {
-    chunk_id: Id,
-    data_size: u32,
-}
-impl Header {
-    fn new(chunk_id: Id, data_size: u32) -> Self {
-        Header {
-            chunk_id: chunk_id,
-            data_size: data_size,
-        }
-    }
-    fn decode<R: Read>(mut reader: R) -> Result<Self> {
-        let mut id = [0; 4];
-        try!(reader.read_exact(&mut id));
-        let size = try!(reader.read_u32::<BigEndian>());
-        Ok(Header::new(id, size))
-    }
-    fn encode<W: Write>(&self, mut writer: W) -> Result<()> {
-        try!(writer.write_all(&self.chunk_id));
-        try!(writer.write_u32::<BigEndian>(self.data_size));
-        Ok(())
-    }
-}
-
+/// The `Chunk` trait represents a type of chunk in a BEAM file.
 pub trait Chunk {
+    /// Returns the identifier of the chunk.
     fn id(&self) -> Id;
 
+    /// Reads a chunk from `reader`.
     fn decode<R: Read>(mut reader: R) -> Result<Self>
         where Self: Sized
     {
-        let header = try!(Header::decode(&mut reader));
+        let header = try!(aux::Header::decode(&mut reader));
         let mut buf = vec![0; header.data_size as usize];
         try!(reader.read_exact(&mut buf));
-        for _ in 0..padding_size(header.data_size) {
+        for _ in 0..aux::padding_size(header.data_size) {
             try!(reader.read_u8());
         }
 
         Self::decode_data(header.chunk_id, Cursor::new(&buf))
     }
+
+    /// Reads a chunk which has the identifier `id` from `reader`.
+    ///
+    /// NOTICE: `reader` has no chunk header (i.e., the identifier and data size of the chunk).
     fn decode_data<R: Read>(id: Id, reader: R) -> Result<Self> where Self: Sized;
 
+    /// Writes the chunk to `writer`.
     fn encode<W: Write>(&self, mut writer: W) -> Result<()> {
         let mut buf = Vec::new();
         try!(self.encode_data(&mut buf));
-        try!(Header::new(self.id(), buf.len() as u32).encode(&mut writer));
+        try!(aux::Header::new(self.id(), buf.len() as u32).encode(&mut writer));
         try!(writer.write_all(&buf));
-        for _ in 0..padding_size(buf.len() as u32) {
+        for _ in 0..aux::padding_size(buf.len() as u32) {
             try!(writer.write_u8(0));
         }
         Ok(())
     }
+
+    /// Writes the data of the chunk to `writer`.
+    ///
+    /// NOTICE: The header (i.e., identifier and data size) of
+    /// the chunk must not write in the function.
     fn encode_data<W: Write>(&self, writer: W) -> Result<()>;
 }
 
-fn padding_size(data_size: u32) -> u32 {
-    (4 - data_size % 4) % 4
-}
-
-fn invalid_data_error<T>(description: String) -> io::Result<T> {
-    Err(io::Error::new(io::ErrorKind::InvalidData, description))
-}
-
+/// A raw representation of a chunk.
+///
+/// This implementation does not interpret the data of a chunk
+/// at the time of reading it from a BEAM file.
 #[derive(Debug, PartialEq, Eq)]
 pub struct RawChunk {
+    /// The identifier of the chunk.
     pub id: Id,
+
+    /// The bare data of the chunk.
     pub data: Vec<u8>,
 }
 impl Chunk for RawChunk {
@@ -101,17 +95,22 @@ impl Chunk for RawChunk {
     }
 }
 
+/// A representation of the "Atom" chunk.
 #[derive(Debug, PartialEq, Eq)]
 pub struct AtomChunk {
+    /// The list of atoms contained in a BEAM file.
     pub atoms: Vec<parts::Atom>,
 }
 impl Chunk for AtomChunk {
     fn id(&self) -> Id {
         *b"Atom"
     }
-    fn decode_data<R: Read>(_id: Id, mut reader: R) -> Result<Self>
+    fn decode_data<R: Read>(id: Id, mut reader: R) -> Result<Self>
         where Self: Sized
     {
+        if id != *b"Atom" {
+            return aux::unexpected_chunk_error(id, *b"Atom");
+        }
         let count = try!(reader.read_u32::<BigEndian>()) as usize;
         let mut atoms = Vec::with_capacity(count);
         for _ in 0..count {
@@ -119,7 +118,8 @@ impl Chunk for AtomChunk {
             let mut buf = vec![0; len];
             try!(reader.read_exact(&mut buf));
 
-            let name = try!(str::from_utf8(&buf).or_else(|e| invalid_data_error(e.to_string())));
+            let name = try!(str::from_utf8(&buf)
+                .or_else(|e| aux::invalid_data_error(e.to_string())));
             atoms.push(parts::Atom { name: name.to_string() });
         }
         Ok(AtomChunk { atoms: atoms })
@@ -135,22 +135,37 @@ impl Chunk for AtomChunk {
     }
 }
 
+/// A representation of the "Code" chunk.
 #[derive(Debug, PartialEq, Eq)]
 pub struct CodeChunk {
+    /// Length of the information fields before code.
     pub info_size: u32,
+
+    /// Instruction set version.
     pub version: u32,
+
+    /// The highest opcode used in the code section.
     pub opcode_max: u32,
+
+    /// The number of labels.
     pub label_count: u32,
+
+    /// The number of functions.
     pub function_count: u32,
+
+    /// The byte code.
     pub bytecode: Vec<u8>,
 }
 impl Chunk for CodeChunk {
     fn id(&self) -> Id {
         *b"Code"
     }
-    fn decode_data<R: Read>(_id: Id, mut reader: R) -> Result<Self>
+    fn decode_data<R: Read>(id: Id, mut reader: R) -> Result<Self>
         where Self: Sized
     {
+        if id != *b"Code" {
+            return aux::unexpected_chunk_error(id, *b"Code");
+        }
         let mut code = CodeChunk {
             info_size: try!(reader.read_u32::<BigEndian>()),
             version: try!(reader.read_u32::<BigEndian>()),
@@ -173,17 +188,22 @@ impl Chunk for CodeChunk {
     }
 }
 
+/// A representation of the "StrT" chunk.
 #[derive(Debug, PartialEq, Eq)]
 pub struct StrTChunk {
+    /// Concatenated strings.
     pub strings: Vec<u8>,
 }
 impl Chunk for StrTChunk {
     fn id(&self) -> Id {
         *b"StrT"
     }
-    fn decode_data<R: Read>(_id: Id, mut reader: R) -> Result<Self>
+    fn decode_data<R: Read>(id: Id, mut reader: R) -> Result<Self>
         where Self: Sized
     {
+        if id != *b"StrT" {
+            return aux::unexpected_chunk_error(id, *b"StrT");
+        }
         let mut buf = Vec::new();
         try!(reader.read_to_end(&mut buf));
         Ok(StrTChunk { strings: buf })
@@ -194,17 +214,22 @@ impl Chunk for StrTChunk {
     }
 }
 
+/// A representation of the "ImpT" chunk.
 #[derive(Debug, PartialEq, Eq)]
 pub struct ImpTChunk {
+    /// The list of imported functions.
     pub imports: Vec<parts::Import>,
 }
 impl Chunk for ImpTChunk {
     fn id(&self) -> Id {
         *b"ImpT"
     }
-    fn decode_data<R: Read>(_id: Id, mut reader: R) -> Result<Self>
+    fn decode_data<R: Read>(id: Id, mut reader: R) -> Result<Self>
         where Self: Sized
     {
+        if id != *b"ImpT" {
+            return aux::unexpected_chunk_error(id, *b"ImpT");
+        }
         let count = try!(reader.read_u32::<BigEndian>()) as usize;
         let mut imports = Vec::with_capacity(count);
         for _ in 0..count {
@@ -227,17 +252,22 @@ impl Chunk for ImpTChunk {
     }
 }
 
+/// A representation of the "ExpT" chunk.
 #[derive(Debug, PartialEq, Eq)]
 pub struct ExpTChunk {
+    /// The list of exported functions.
     pub exports: Vec<parts::Export>,
 }
 impl Chunk for ExpTChunk {
     fn id(&self) -> Id {
         *b"ExpT"
     }
-    fn decode_data<R: Read>(_id: Id, mut reader: R) -> Result<Self>
+    fn decode_data<R: Read>(id: Id, mut reader: R) -> Result<Self>
         where Self: Sized
     {
+        if id != *b"ExpT" {
+            return aux::unexpected_chunk_error(id, *b"ExpT");
+        }
         let count = try!(reader.read_u32::<BigEndian>()) as usize;
         let mut exports = Vec::with_capacity(count);
         for _ in 0..count {
@@ -260,17 +290,25 @@ impl Chunk for ExpTChunk {
     }
 }
 
+/// A representation of the "LitT" chunk.
 #[derive(Debug, PartialEq, Eq)]
 pub struct LitTChunk {
+    /// The list of literal terms.
+    ///
+    /// Each term is encoded in the [External Term Format]
+    /// (http://erlang.org/doc/apps/erts/erl_ext_dist.html).
     pub literals: Vec<parts::ExternalTermFormatBinary>,
 }
 impl Chunk for LitTChunk {
     fn id(&self) -> Id {
         *b"LitT"
     }
-    fn decode_data<R: Read>(_id: Id, mut reader: R) -> Result<Self>
+    fn decode_data<R: Read>(id: Id, mut reader: R) -> Result<Self>
         where Self: Sized
     {
+        if id != *b"LitT" {
+            return aux::unexpected_chunk_error(id, *b"LitT");
+        }
         let _uncompressed_size = try!(reader.read_u32::<BigEndian>());
         let mut decoder = ZlibDecoder::new(reader);
 
@@ -299,17 +337,22 @@ impl Chunk for LitTChunk {
     }
 }
 
+/// A representation of the "LocT" chunk.
 #[derive(Debug, PartialEq, Eq)]
 pub struct LocTChunk {
+    /// The list of local functions.
     pub locals: Vec<parts::Local>,
 }
 impl Chunk for LocTChunk {
     fn id(&self) -> Id {
         *b"LocT"
     }
-    fn decode_data<R: Read>(_id: Id, mut reader: R) -> Result<Self>
+    fn decode_data<R: Read>(id: Id, mut reader: R) -> Result<Self>
         where Self: Sized
     {
+        if id != *b"LocT" {
+            return aux::unexpected_chunk_error(id, *b"LocT");
+        }
         let count = try!(reader.read_u32::<BigEndian>()) as usize;
         let mut locals = Vec::with_capacity(count);
         for _ in 0..count {
@@ -332,17 +375,22 @@ impl Chunk for LocTChunk {
     }
 }
 
+/// A representation of the "FunT" chunk.
 #[derive(Debug, PartialEq, Eq)]
 pub struct FunTChunk {
+    /// The list of anonymous functions.
     pub functions: Vec<parts::Function>,
 }
 impl Chunk for FunTChunk {
     fn id(&self) -> Id {
         *b"FunT"
     }
-    fn decode_data<R: Read>(_id: Id, mut reader: R) -> Result<Self>
+    fn decode_data<R: Read>(id: Id, mut reader: R) -> Result<Self>
         where Self: Sized
     {
+        if id != *b"FunT" {
+            return aux::unexpected_chunk_error(id, *b"FunT");
+        }
         let count = try!(reader.read_u32::<BigEndian>()) as usize;
         let mut functions = Vec::with_capacity(count);
         for _ in 0..count {
@@ -371,17 +419,27 @@ impl Chunk for FunTChunk {
     }
 }
 
+/// A representation of the "Attr" chunk.
 #[derive(Debug, PartialEq, Eq)]
 pub struct AttrChunk {
+    /// The attributes of a module (i.e., BEAM file).
+    ///
+    /// The value is equivalent to the result of the following erlang code.
+    /// ```erlang
+    /// term_to_binary(Module:module_info(attributes)).
+    /// ```
     pub term: parts::ExternalTermFormatBinary,
 }
 impl Chunk for AttrChunk {
     fn id(&self) -> Id {
         *b"Attr"
     }
-    fn decode_data<R: Read>(_id: Id, mut reader: R) -> Result<Self>
+    fn decode_data<R: Read>(id: Id, mut reader: R) -> Result<Self>
         where Self: Sized
     {
+        if id != *b"Attr" {
+            return aux::unexpected_chunk_error(id, *b"Attr");
+        }
         let mut buf = Vec::new();
         try!(reader.read_to_end(&mut buf));
         Ok(AttrChunk { term: buf })
@@ -392,17 +450,27 @@ impl Chunk for AttrChunk {
     }
 }
 
+/// A representation of the "CInf" chunk.
 #[derive(Debug, PartialEq, Eq)]
 pub struct CInfChunk {
+    /// The compile information of a module (i.e., BEAM file).
+    ///
+    /// The value is equivalent to the result of the following erlang code.
+    /// ```erlang
+    /// term_to_binary(Module:module_info(compile)).
+    /// ```
     pub term: parts::ExternalTermFormatBinary,
 }
 impl Chunk for CInfChunk {
     fn id(&self) -> Id {
         *b"CInf"
     }
-    fn decode_data<R: Read>(_id: Id, mut reader: R) -> Result<Self>
+    fn decode_data<R: Read>(id: Id, mut reader: R) -> Result<Self>
         where Self: Sized
     {
+        if id != *b"CInf" {
+            return aux::unexpected_chunk_error(id, *b"CInf");
+        }
         let mut buf = Vec::new();
         try!(reader.read_to_end(&mut buf));
         Ok(CInfChunk { term: buf })
@@ -413,17 +481,26 @@ impl Chunk for CInfChunk {
     }
 }
 
+/// A representation of the "Abst" chunk.
 #[derive(Debug, PartialEq, Eq)]
 pub struct AbstChunk {
+    /// The abstract code of a module (i.e., BEAM file).
+    ///
+    /// The value is encoded in the [External Term Format]
+    /// (http://erlang.org/doc/apps/erts/erl_ext_dist.html) and
+    /// represents [The Abstract Format](http://erlang.org/doc/apps/erts/absform.html).
     pub term: parts::ExternalTermFormatBinary,
 }
 impl Chunk for AbstChunk {
     fn id(&self) -> Id {
         *b"Abst"
     }
-    fn decode_data<R: Read>(_id: Id, mut reader: R) -> Result<Self>
+    fn decode_data<R: Read>(id: Id, mut reader: R) -> Result<Self>
         where Self: Sized
     {
+        if id != *b"Abst" {
+            return aux::unexpected_chunk_error(id, *b"Abst");
+        }
         let mut buf = Vec::new();
         try!(reader.read_to_end(&mut buf));
         Ok(AbstChunk { term: buf })
@@ -434,6 +511,15 @@ impl Chunk for AbstChunk {
     }
 }
 
+/// A representation of commonly used chunk.
+///
+/// ```
+/// use beam_file::BeamFile;
+/// use beam_file::chunk::{Chunk, StandardChunk};
+///
+/// let beam = BeamFile::<StandardChunk>::from_file("tests/testdata/test.beam").unwrap();
+/// assert_eq!(*b"Atom", beam.chunks.iter().nth(0).map(|c| c.id()).unwrap());
+/// ```
 #[derive(Debug, PartialEq, Eq)]
 pub enum StandardChunk {
     Atom(AtomChunk),
@@ -502,5 +588,53 @@ impl Chunk for StandardChunk {
             Abst(ref c) => c.encode_data(writer),
             Unknown(ref c) => c.encode_data(writer),
         }
+    }
+}
+
+mod aux {
+    use std::str;
+    use std::io;
+    use byteorder::ReadBytesExt;
+    use byteorder::WriteBytesExt;
+    use byteorder::BigEndian;
+    use super::*;
+
+    pub struct Header {
+        pub chunk_id: Id,
+        pub data_size: u32,
+    }
+    impl Header {
+        pub fn new(chunk_id: Id, data_size: u32) -> Self {
+            Header {
+                chunk_id: chunk_id,
+                data_size: data_size,
+            }
+        }
+        pub fn decode<R: io::Read>(mut reader: R) -> io::Result<Self> {
+            let mut id = [0; 4];
+            try!(reader.read_exact(&mut id));
+            let size = try!(reader.read_u32::<BigEndian>());
+            Ok(Header::new(id, size))
+        }
+        pub fn encode<W: io::Write>(&self, mut writer: W) -> io::Result<()> {
+            try!(writer.write_all(&self.chunk_id));
+            try!(writer.write_u32::<BigEndian>(self.data_size));
+            Ok(())
+        }
+    }
+
+    pub fn padding_size(data_size: u32) -> u32 {
+        (4 - data_size % 4) % 4
+    }
+
+    pub fn invalid_data_error<T>(description: String) -> io::Result<T> {
+        Err(io::Error::new(io::ErrorKind::InvalidData, description))
+    }
+
+    pub fn unexpected_chunk_error<T>(passed: Id, expected: Id) -> io::Result<T> {
+        let to_str = |x| str::from_utf8(x).map(|x| x.to_string()).unwrap_or(format!("{:?}", x));
+        invalid_data_error(format!("Unexpected chunk: passed={}, expected={}",
+                                   to_str(&passed),
+                                   to_str(&expected)))
     }
 }

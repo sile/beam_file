@@ -10,11 +10,19 @@ use byteorder::WriteBytesExt;
 use byteorder::BigEndian;
 use chunk::Chunk;
 
+/// A BEAM File
+///
+/// ```
+/// use beam_file::BeamFile;
+/// use beam_file::chunk::{Chunk, RawChunk};
+///
+/// let beam = BeamFile::<RawChunk>::from_file("tests/testdata/test.beam").unwrap();
+/// assert_eq!(*b"Atom", beam.chunks.iter().nth(0).map(|c| c.id()).unwrap());
+/// ```
 #[derive(Debug)]
 pub struct BeamFile<C> {
     pub chunks: Vec<C>,
 }
-
 impl<C: Chunk> BeamFile<C> {
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let f = try!(File::open(path));
