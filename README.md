@@ -6,7 +6,7 @@ A tiny library for processing Erlang BEAM file in Rust.
 Documentation
 -------------
 
-http://sile.github.io/rustdocs/beam_file/v0.1.0/beam_file/
+See [RustDoc Documentation](http://sile.github.io/beam_file/beam_file/).
 
 The documentation includes some examples.
 
