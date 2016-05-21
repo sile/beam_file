@@ -2,7 +2,14 @@
 name = "beam_file"
 version = "0.1.0"
 authors = ["Takeru Ohta <phjgt308@gmail.com>"]
+description = "Library for processing Erlang BEAM file"
+documentation = "http://sile.github.io/beam_file/"
+homepage = "https://github.com/sile/beam_file"
+repository = "https://github.com/sile/beam_file"
+readme = "README.md"
+keywords = ["erlang", "beam"]
+license = "MIT"
 
 [dependencies]
-byteorder = "*"
-flate2 = "*"
+byteorder = "0.5"
+flate2 = "0.2"
