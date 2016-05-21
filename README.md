@@ -1,7 +1,24 @@
 beam_file
 =========
 
-A tiny library for processing Erlang BEAM file in Rust
+A tiny library for processing Erlang BEAM file in Rust.
+
+Documentation
+-------------
+
+http://sile.github.io/beam_file/
+
+The documentation includes some examples.
+
+Installation
+------------
+
+Add following lines to your `Cargo.toml`:
+
+```toml
+[dependencies]
+beam_file = "*"
+```
 
 Reference
 ---------
