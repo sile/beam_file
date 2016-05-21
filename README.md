@@ -1,6 +1,8 @@
 beam_file
 =========
 
+[![](http://meritbadge.herokuapp.com/beam_file)](https://crates.io/crates/beam_file)
+
 A tiny library for processing Erlang BEAM file in Rust.
 
 Documentation
