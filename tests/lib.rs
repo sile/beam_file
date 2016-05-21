@@ -123,18 +123,18 @@ enum EncodeTestChunk {
     Other(chunk::RawChunk),
 }
 impl chunk::Chunk for EncodeTestChunk {
-    fn id(&self) -> chunk::Id {
+    fn id(&self) -> &chunk::Id {
         use self::EncodeTestChunk::*;
         match *self {
             Idempotent(ref c) => c.id(),
             Other(ref c) => c.id(),
         }
     }
-    fn decode_data<R: Read>(id: chunk::Id, reader: R) -> Result<Self>
+    fn decode_data<R: Read>(id: &chunk::Id, reader: R) -> Result<Self>
         where Self: Sized
     {
         use self::EncodeTestChunk::*;
-        match &id {
+        match id {
             b"LitT" => Ok(Other(try!(chunk::RawChunk::decode_data(id, reader)))),
             _ => Ok(Idempotent(try!(chunk::StandardChunk::decode_data(id, reader)))),
         }
@@ -169,5 +169,5 @@ fn test_file(name: &str) -> PathBuf {
 }
 
 fn collect_id<C: Chunk>(chunks: &Vec<C>) -> Vec<String> {
-    chunks.iter().map(|c| std::str::from_utf8(&c.id()).unwrap().to_string()).collect()
+    chunks.iter().map(|c| std::str::from_utf8(c.id()).unwrap().to_string()).collect()
 }

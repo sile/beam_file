@@ -17,7 +17,7 @@ use chunk::Chunk;
 /// use beam_file::chunk::{Chunk, RawChunk};
 ///
 /// let beam = BeamFile::<RawChunk>::from_file("tests/testdata/test.beam").unwrap();
-/// assert_eq!(*b"Atom", beam.chunks.iter().nth(0).map(|c| c.id()).unwrap());
+/// assert_eq!(b"Atom", beam.chunks.iter().nth(0).map(|c| c.id()).unwrap());
 /// ```
 #[derive(Debug)]
 pub struct BeamFile<C> {

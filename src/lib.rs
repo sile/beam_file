@@ -10,8 +10,8 @@
 //!
 //! let beam = StandardBeamFile::from_file("tests/testdata/test.beam").unwrap();
 //!
-//! assert_eq!(vec![*b"Atom", *b"Code", *b"StrT", *b"ImpT", *b"ExpT", *b"FunT", *b"LitT", *b"LocT",
-//!                 *b"Attr", *b"CInf", *b"Abst", *b"Line"],
+//! assert_eq!(vec![b"Atom", b"Code", b"StrT", b"ImpT", b"ExpT", b"FunT", b"LitT", b"LocT",
+//!                 b"Attr", b"CInf", b"Abst", b"Line"],
 //!            beam.chunks.iter().map(|c| c.id()).collect::<Vec<_>>());
 //! ```
 //!
