@@ -1,7 +1,5 @@
 use std::path::Path;
 use std::fs::File;
-use std::io;
-use std::io::Result;
 use std::io::Read;
 use std::io::Write;
 use std::io::Cursor;
@@ -9,6 +7,8 @@ use byteorder::ReadBytesExt;
 use byteorder::WriteBytesExt;
 use byteorder::BigEndian;
 use chunk::Chunk;
+use Result;
+use Error;
 
 /// A BEAM File
 ///
@@ -32,13 +32,11 @@ impl<C: Chunk> BeamFile<C> {
         let expected = Header::new(0);
         let header = try!(Header::from_reader(&mut reader));
         if header.magic_number != expected.magic_number {
-            return Err(io::Error::new(io::ErrorKind::InvalidData,
-                                      format!("Unexpected magic number: {:?}",
-                                              header.magic_number)));
+            return Err(Error::UnexpectedMagicNumber { magic_number: header.magic_number });
+
         }
         if header.type_id != expected.type_id {
-            return Err(io::Error::new(io::ErrorKind::InvalidData,
-                                      format!("Unexpected type: {:?}", header.type_id)));
+            return Err(Error::UnexpectedFormType { form_type: header.type_id });
         }
 
         let mut buf = vec![0; (header.payload_size - 4) as usize];

@@ -5,7 +5,6 @@
 //!   (http://rnyingma.synrc.com/publications/cat/Functional%20Languages/Erlang/BEAM.pdf)
 //! - [beam_lib](http://erlang.org/doc/man/beam_lib.html)
 use std::str;
-use std::io::Result;
 use std::io::Read;
 use std::io::Write;
 use std::io::Cursor;
@@ -16,6 +15,7 @@ use flate2;
 use flate2::read::ZlibDecoder;
 use flate2::write::ZlibEncoder;
 use parts;
+use Result;
 
 /// The identifier which indicates the type of a chunk.
 pub type Id = [u8; 4];
@@ -108,9 +108,7 @@ impl Chunk for AtomChunk {
     fn decode_data<R: Read>(id: &Id, mut reader: R) -> Result<Self>
         where Self: Sized
     {
-        if id != b"Atom" {
-            return aux::unexpected_chunk_error(id, b"Atom");
-        }
+        try!(aux::check_chunk_id(id, b"Atom"));
         let count = try!(reader.read_u32::<BigEndian>()) as usize;
         let mut atoms = Vec::with_capacity(count);
         for _ in 0..count {
@@ -118,8 +116,7 @@ impl Chunk for AtomChunk {
             let mut buf = vec![0; len];
             try!(reader.read_exact(&mut buf));
 
-            let name = try!(str::from_utf8(&buf)
-                .or_else(|e| aux::invalid_data_error(e.to_string())));
+            let name = try!(str::from_utf8(&buf).map(|s| s.to_string()));
             atoms.push(parts::Atom { name: name.to_string() });
         }
         Ok(AtomChunk { atoms: atoms })
@@ -163,9 +160,7 @@ impl Chunk for CodeChunk {
     fn decode_data<R: Read>(id: &Id, mut reader: R) -> Result<Self>
         where Self: Sized
     {
-        if id != b"Code" {
-            return aux::unexpected_chunk_error(id, b"Code");
-        }
+        try!(aux::check_chunk_id(id, b"Code"));
         let mut code = CodeChunk {
             info_size: try!(reader.read_u32::<BigEndian>()),
             version: try!(reader.read_u32::<BigEndian>()),
@@ -201,9 +196,7 @@ impl Chunk for StrTChunk {
     fn decode_data<R: Read>(id: &Id, mut reader: R) -> Result<Self>
         where Self: Sized
     {
-        if id != b"StrT" {
-            return aux::unexpected_chunk_error(id, b"StrT");
-        }
+        try!(aux::check_chunk_id(id, b"StrT"));
         let mut buf = Vec::new();
         try!(reader.read_to_end(&mut buf));
         Ok(StrTChunk { strings: buf })
@@ -227,9 +220,7 @@ impl Chunk for ImpTChunk {
     fn decode_data<R: Read>(id: &Id, mut reader: R) -> Result<Self>
         where Self: Sized
     {
-        if id != b"ImpT" {
-            return aux::unexpected_chunk_error(id, b"ImpT");
-        }
+        try!(aux::check_chunk_id(id, b"ImpT"));
         let count = try!(reader.read_u32::<BigEndian>()) as usize;
         let mut imports = Vec::with_capacity(count);
         for _ in 0..count {
@@ -265,9 +256,7 @@ impl Chunk for ExpTChunk {
     fn decode_data<R: Read>(id: &Id, mut reader: R) -> Result<Self>
         where Self: Sized
     {
-        if id != b"ExpT" {
-            return aux::unexpected_chunk_error(id, b"ExpT");
-        }
+        try!(aux::check_chunk_id(id, b"ExpT"));
         let count = try!(reader.read_u32::<BigEndian>()) as usize;
         let mut exports = Vec::with_capacity(count);
         for _ in 0..count {
@@ -306,9 +295,7 @@ impl Chunk for LitTChunk {
     fn decode_data<R: Read>(id: &Id, mut reader: R) -> Result<Self>
         where Self: Sized
     {
-        if id != b"LitT" {
-            return aux::unexpected_chunk_error(id, b"LitT");
-        }
+        try!(aux::check_chunk_id(id, b"LitT"));
         let _uncompressed_size = try!(reader.read_u32::<BigEndian>());
         let mut decoder = ZlibDecoder::new(reader);
 
@@ -350,9 +337,7 @@ impl Chunk for LocTChunk {
     fn decode_data<R: Read>(id: &Id, mut reader: R) -> Result<Self>
         where Self: Sized
     {
-        if id != b"LocT" {
-            return aux::unexpected_chunk_error(id, b"LocT");
-        }
+        try!(aux::check_chunk_id(id, b"LocT"));
         let count = try!(reader.read_u32::<BigEndian>()) as usize;
         let mut locals = Vec::with_capacity(count);
         for _ in 0..count {
@@ -388,9 +373,7 @@ impl Chunk for FunTChunk {
     fn decode_data<R: Read>(id: &Id, mut reader: R) -> Result<Self>
         where Self: Sized
     {
-        if id != b"FunT" {
-            return aux::unexpected_chunk_error(id, b"FunT");
-        }
+        try!(aux::check_chunk_id(id, b"FunT"));
         let count = try!(reader.read_u32::<BigEndian>()) as usize;
         let mut functions = Vec::with_capacity(count);
         for _ in 0..count {
@@ -437,9 +420,7 @@ impl Chunk for AttrChunk {
     fn decode_data<R: Read>(id: &Id, mut reader: R) -> Result<Self>
         where Self: Sized
     {
-        if id != b"Attr" {
-            return aux::unexpected_chunk_error(id, b"Attr");
-        }
+        try!(aux::check_chunk_id(id, b"Attr"));
         let mut buf = Vec::new();
         try!(reader.read_to_end(&mut buf));
         Ok(AttrChunk { term: buf })
@@ -468,9 +449,7 @@ impl Chunk for CInfChunk {
     fn decode_data<R: Read>(id: &Id, mut reader: R) -> Result<Self>
         where Self: Sized
     {
-        if id != b"CInf" {
-            return aux::unexpected_chunk_error(id, b"CInf");
-        }
+        try!(aux::check_chunk_id(id, b"CInf"));
         let mut buf = Vec::new();
         try!(reader.read_to_end(&mut buf));
         Ok(CInfChunk { term: buf })
@@ -498,9 +477,7 @@ impl Chunk for AbstChunk {
     fn decode_data<R: Read>(id: &Id, mut reader: R) -> Result<Self>
         where Self: Sized
     {
-        if id != b"Abst" {
-            return aux::unexpected_chunk_error(id, b"Abst");
-        }
+        try!(aux::check_chunk_id(id, b"Abst"));
         let mut buf = Vec::new();
         try!(reader.read_to_end(&mut buf));
         Ok(AbstChunk { term: buf })
@@ -592,7 +569,6 @@ impl Chunk for StandardChunk {
 }
 
 mod aux {
-    use std::str;
     use std::io;
     use byteorder::ReadBytesExt;
     use byteorder::WriteBytesExt;
@@ -627,14 +603,14 @@ mod aux {
         (4 - data_size % 4) % 4
     }
 
-    pub fn invalid_data_error<T>(description: String) -> io::Result<T> {
-        Err(io::Error::new(io::ErrorKind::InvalidData, description))
-    }
-
-    pub fn unexpected_chunk_error<T>(passed: &Id, expected: &Id) -> io::Result<T> {
-        let to_str = |x| str::from_utf8(x).map(|x| x.to_string()).unwrap_or(format!("{:?}", x));
-        invalid_data_error(format!("Unexpected chunk: passed={}, expected={}",
-                                   to_str(passed),
-                                   to_str(expected)))
+    pub fn check_chunk_id(passed: &Id, expected: &Id) -> ::Result<()> {
+        if passed != expected {
+            Err(::Error::UnexpectedChunk {
+                id: *passed,
+                expected: *expected,
+            })
+        } else {
+            Ok(())
+        }
     }
 }

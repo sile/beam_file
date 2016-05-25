@@ -2,7 +2,6 @@ extern crate beam_file;
 
 use std::io::Read;
 use std::io::Write;
-use std::io::Result;
 use std::path::PathBuf;
 use std::fs::File;
 use beam_file::BeamFile;
@@ -11,6 +10,7 @@ use beam_file::StandardBeamFile;
 use beam_file::chunk;
 use beam_file::chunk::Chunk;
 use beam_file::parts;
+use beam_file::Result;
 
 #[test]
 fn raw_chunks() {
