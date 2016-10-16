@@ -2,6 +2,7 @@ beam_file
 =========
 
 [![](http://meritbadge.herokuapp.com/beam_file)](https://crates.io/crates/beam_file)
+[![Build Status](https://travis-ci.org/sile/beam_file.svg?branch=master)](https://travis-ci.org/sile/beam_file)
 
 A tiny library for processing Erlang BEAM file in Rust.
 
