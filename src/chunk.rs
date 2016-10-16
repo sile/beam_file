@@ -11,9 +11,7 @@ use std::io::Cursor;
 use byteorder::ReadBytesExt;
 use byteorder::WriteBytesExt;
 use byteorder::BigEndian;
-use flate2;
-use flate2::read::ZlibDecoder;
-use flate2::write::ZlibEncoder;
+use libflate::zlib;
 use parts;
 use Result;
 
@@ -297,7 +295,7 @@ impl Chunk for LitTChunk {
     {
         try!(aux::check_chunk_id(id, b"LitT"));
         let _uncompressed_size = try!(reader.read_u32::<BigEndian>());
-        let mut decoder = ZlibDecoder::new(reader);
+        let mut decoder = try!(zlib::Decoder::new(reader));
 
         let count = try!(decoder.read_u32::<BigEndian>()) as usize;
         let mut literals = Vec::with_capacity(count);
@@ -313,13 +311,13 @@ impl Chunk for LitTChunk {
         let uncompressed_size = self.literals.iter().fold(4, |acc, l| acc + 4 + l.len() as u32);
         try!(writer.write_u32::<BigEndian>(uncompressed_size));
 
-        let mut encoder = ZlibEncoder::new(writer, flate2::Compression::Default);
+        let mut encoder = try!(zlib::Encoder::new(writer));
         try!(encoder.write_u32::<BigEndian>(self.literals.len() as u32));
         for literal in &self.literals {
             try!(encoder.write_u32::<BigEndian>(literal.len() as u32));
             try!(encoder.write_all(&literal));
         }
-        try!(encoder.finish());
+        try!(encoder.finish().into_result());
         Ok(())
     }
 }

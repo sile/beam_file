@@ -23,10 +23,10 @@
 //!
 //! let chunk = RawChunk{id: *b"Atom", data: Vec::new()}; // NOTICE: The chunk is malformed
 //! let beam = RawBeamFile{chunks: vec![chunk]};
-//! beam.to_file("/tmp/my.beam").unwrap();
+//! beam.to_file("my.beam").unwrap();
 //! ```
 extern crate byteorder;
-extern crate flate2;
+extern crate libflate;
 
 pub mod chunk;
 pub mod parts;
@@ -42,16 +42,9 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     Io(std::io::Error),
     InvalidString(std::str::Utf8Error),
-    UnexpectedMagicNumber {
-        magic_number: [u8; 4],
-    },
-    UnexpectedFormType {
-        form_type: [u8; 4],
-    },
-    UnexpectedChunk {
-        id: chunk::Id,
-        expected: chunk::Id,
-    },
+    UnexpectedMagicNumber { magic_number: [u8; 4] },
+    UnexpectedFormType { form_type: [u8; 4] },
+    UnexpectedChunk { id: chunk::Id, expected: chunk::Id },
 }
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
