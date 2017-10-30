@@ -1,14 +1,17 @@
 [package]
 name = "beam_file"
-version = "0.2.2"
+version = "0.2.3"
 authors = ["Takeru Ohta <phjgt308@gmail.com>"]
 description = "Library for processing Erlang BEAM file"
-documentation = "https://docs.rs/beam_file"
 homepage = "https://github.com/sile/beam_file"
 repository = "https://github.com/sile/beam_file"
 readme = "README.md"
 keywords = ["erlang", "beam"]
 license = "MIT"
+
+[badges]
+travis-ci = {repository = "sile/beam_file"}
+codecov = {repository = "sile/beam_file"}
 
 [dependencies]
 byteorder = "0.5"
