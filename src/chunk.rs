@@ -25,7 +25,8 @@ pub trait Chunk {
 
     /// Reads a chunk from `reader`.
     fn decode<R: Read>(mut reader: R) -> Result<Self>
-        where Self: Sized
+    where
+        Self: Sized,
     {
         let header = try!(aux::Header::decode(&mut reader));
         let mut buf = vec![0; header.data_size as usize];
@@ -40,13 +41,17 @@ pub trait Chunk {
     /// Reads a chunk which has the identifier `id` from `reader`.
     ///
     /// NOTICE: `reader` has no chunk header (i.e., the identifier and data size of the chunk).
-    fn decode_data<R: Read>(id: &Id, reader: R) -> Result<Self> where Self: Sized;
+    fn decode_data<R: Read>(id: &Id, reader: R) -> Result<Self>
+    where
+        Self: Sized;
 
     /// Writes the chunk to `writer`.
     fn encode<W: Write>(&self, mut writer: W) -> Result<()> {
         let mut buf = Vec::new();
         try!(self.encode_data(&mut buf));
-        try!(aux::Header::new(self.id(), buf.len() as u32).encode(&mut writer));
+        try!(aux::Header::new(self.id(), buf.len() as u32).encode(
+            &mut writer,
+        ));
         try!(writer.write_all(&buf));
         for _ in 0..aux::padding_size(buf.len() as u32) {
             try!(writer.write_u8(0));
@@ -78,14 +83,12 @@ impl Chunk for RawChunk {
         &self.id
     }
     fn decode_data<R: Read>(id: &Id, mut reader: R) -> Result<Self>
-        where Self: Sized
+    where
+        Self: Sized,
     {
         let mut buf = Vec::new();
         try!(reader.read_to_end(&mut buf));
-        Ok(RawChunk {
-            id: *id,
-            data: buf,
-        })
+        Ok(RawChunk { id: *id, data: buf })
     }
     fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
         try!(writer.write_all(&self.data));
@@ -104,7 +107,8 @@ impl Chunk for AtomChunk {
         b"Atom"
     }
     fn decode_data<R: Read>(id: &Id, mut reader: R) -> Result<Self>
-        where Self: Sized
+    where
+        Self: Sized,
     {
         try!(aux::check_chunk_id(id, b"Atom"));
         let count = try!(reader.read_u32::<BigEndian>()) as usize;
@@ -156,7 +160,8 @@ impl Chunk for CodeChunk {
         b"Code"
     }
     fn decode_data<R: Read>(id: &Id, mut reader: R) -> Result<Self>
-        where Self: Sized
+    where
+        Self: Sized,
     {
         try!(aux::check_chunk_id(id, b"Code"));
         let mut code = CodeChunk {
@@ -192,7 +197,8 @@ impl Chunk for StrTChunk {
         b"StrT"
     }
     fn decode_data<R: Read>(id: &Id, mut reader: R) -> Result<Self>
-        where Self: Sized
+    where
+        Self: Sized,
     {
         try!(aux::check_chunk_id(id, b"StrT"));
         let mut buf = Vec::new();
@@ -216,7 +222,8 @@ impl Chunk for ImpTChunk {
         b"ImpT"
     }
     fn decode_data<R: Read>(id: &Id, mut reader: R) -> Result<Self>
-        where Self: Sized
+    where
+        Self: Sized,
     {
         try!(aux::check_chunk_id(id, b"ImpT"));
         let count = try!(reader.read_u32::<BigEndian>()) as usize;
@@ -252,7 +259,8 @@ impl Chunk for ExpTChunk {
         b"ExpT"
     }
     fn decode_data<R: Read>(id: &Id, mut reader: R) -> Result<Self>
-        where Self: Sized
+    where
+        Self: Sized,
     {
         try!(aux::check_chunk_id(id, b"ExpT"));
         let count = try!(reader.read_u32::<BigEndian>()) as usize;
@@ -291,7 +299,8 @@ impl Chunk for LitTChunk {
         b"LitT"
     }
     fn decode_data<R: Read>(id: &Id, mut reader: R) -> Result<Self>
-        where Self: Sized
+    where
+        Self: Sized,
     {
         try!(aux::check_chunk_id(id, b"LitT"));
         let _uncompressed_size = try!(reader.read_u32::<BigEndian>());
@@ -308,7 +317,10 @@ impl Chunk for LitTChunk {
         Ok(LitTChunk { literals: literals })
     }
     fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
-        let uncompressed_size = self.literals.iter().fold(4, |acc, l| acc + 4 + l.len() as u32);
+        let uncompressed_size = self.literals.iter().fold(
+            4,
+            |acc, l| acc + 4 + l.len() as u32,
+        );
         try!(writer.write_u32::<BigEndian>(uncompressed_size));
 
         let mut encoder = try!(zlib::Encoder::new(writer));
@@ -333,7 +345,8 @@ impl Chunk for LocTChunk {
         b"LocT"
     }
     fn decode_data<R: Read>(id: &Id, mut reader: R) -> Result<Self>
-        where Self: Sized
+    where
+        Self: Sized,
     {
         try!(aux::check_chunk_id(id, b"LocT"));
         let count = try!(reader.read_u32::<BigEndian>()) as usize;
@@ -369,7 +382,8 @@ impl Chunk for FunTChunk {
         b"FunT"
     }
     fn decode_data<R: Read>(id: &Id, mut reader: R) -> Result<Self>
-        where Self: Sized
+    where
+        Self: Sized,
     {
         try!(aux::check_chunk_id(id, b"FunT"));
         let count = try!(reader.read_u32::<BigEndian>()) as usize;
@@ -416,7 +430,8 @@ impl Chunk for AttrChunk {
         b"Attr"
     }
     fn decode_data<R: Read>(id: &Id, mut reader: R) -> Result<Self>
-        where Self: Sized
+    where
+        Self: Sized,
     {
         try!(aux::check_chunk_id(id, b"Attr"));
         let mut buf = Vec::new();
@@ -445,7 +460,8 @@ impl Chunk for CInfChunk {
         b"CInf"
     }
     fn decode_data<R: Read>(id: &Id, mut reader: R) -> Result<Self>
-        where Self: Sized
+    where
+        Self: Sized,
     {
         try!(aux::check_chunk_id(id, b"CInf"));
         let mut buf = Vec::new();
@@ -473,7 +489,8 @@ impl Chunk for AbstChunk {
         b"Abst"
     }
     fn decode_data<R: Read>(id: &Id, mut reader: R) -> Result<Self>
-        where Self: Sized
+    where
+        Self: Sized,
     {
         try!(aux::check_chunk_id(id, b"Abst"));
         let mut buf = Vec::new();
@@ -529,7 +546,8 @@ impl Chunk for StandardChunk {
         }
     }
     fn decode_data<R: Read>(id: &Id, reader: R) -> Result<Self>
-        where Self: Sized
+    where
+        Self: Sized,
     {
         use self::StandardChunk::*;
         match id {

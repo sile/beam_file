@@ -32,7 +32,9 @@ impl<C: Chunk> BeamFile<C> {
         let expected = Header::new(0);
         let header = try!(Header::from_reader(&mut reader));
         if header.magic_number != expected.magic_number {
-            return Err(Error::UnexpectedMagicNumber { magic_number: header.magic_number });
+            return Err(Error::UnexpectedMagicNumber {
+                magic_number: header.magic_number,
+            });
 
         }
         if header.type_id != expected.type_id {
