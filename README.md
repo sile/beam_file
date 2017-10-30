@@ -1,8 +1,10 @@
 beam_file
 =========
 
-[![](http://meritbadge.herokuapp.com/beam_file)](https://crates.io/crates/beam_file)
+[![Crates.io: beam_file](http://meritbadge.herokuapp.com/beam_file)](https://crates.io/crates/beam_file)
+[![Documentation](https://docs.rs/beam_file/badge.svg)](https://docs.rs/beam_file)
 [![Build Status](https://travis-ci.org/sile/beam_file.svg?branch=master)](https://travis-ci.org/sile/beam_file)
+[![Code Coverage](https://codecov.io/gh/sile/beam_file/branch/master/graph/badge.svg)](https://codecov.io/gh/sile/beam_file/branch/master)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 A tiny library for processing Erlang BEAM file in Rust.
