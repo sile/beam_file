@@ -111,5 +111,5 @@ impl std::convert::From<std::str::Utf8Error> for Error {
 fn bytes_to_str(bytes: &[u8]) -> String {
     std::str::from_utf8(bytes)
         .map(|x| format!("b{:?}", x))
-        .unwrap_or(format!("{:?}", bytes))
+        .unwrap_or_else(|_| format!("{:?}", bytes))
 }

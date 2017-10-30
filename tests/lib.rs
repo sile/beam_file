@@ -242,7 +242,7 @@ fn test_file(name: &str) -> PathBuf {
     path
 }
 
-fn collect_id<C: Chunk>(chunks: &Vec<C>) -> Vec<String> {
+fn collect_id<C: Chunk>(chunks: &[C]) -> Vec<String> {
     chunks
         .iter()
         .map(|c| std::str::from_utf8(c.id()).unwrap().to_string())

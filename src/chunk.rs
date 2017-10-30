@@ -1,9 +1,10 @@
 //! The `Chunk` trait and implementations of commonly used chunks.
 //!
 //! # Reference
-//! - [BEAM File Format]
-//!   (http://rnyingma.synrc.com/publications/cat/Functional%20Languages/Erlang/BEAM.pdf)
-//! - [beam_lib](http://erlang.org/doc/man/beam_lib.html)
+//! - [BEAM File Format][BEAM]
+//! - [`beam_lib`](http://erlang.org/doc/man/beam_lib.html)
+//!
+//! [BEAM]: http://rnyingma.synrc.com/publications/cat/Functional%20Languages/Erlang/BEAM.pdf
 use std::str;
 use std::io::Read;
 use std::io::Write;
@@ -96,7 +97,7 @@ impl Chunk for RawChunk {
     }
 }
 
-/// A representation of the "Atom" chunk.
+/// A representation of the `"Atom"` chunk.
 #[derive(Debug, PartialEq, Eq)]
 pub struct AtomChunk {
     /// The list of atoms contained in a BEAM file.
@@ -134,7 +135,7 @@ impl Chunk for AtomChunk {
     }
 }
 
-/// A representation of the "Code" chunk.
+/// A representation of the `"Code"` chunk.
 #[derive(Debug, PartialEq, Eq)]
 pub struct CodeChunk {
     /// Length of the information fields before code.
@@ -186,7 +187,7 @@ impl Chunk for CodeChunk {
     }
 }
 
-/// A representation of the "StrT" chunk.
+/// A representation of the `"StrT"` chunk.
 #[derive(Debug, PartialEq, Eq)]
 pub struct StrTChunk {
     /// Concatenated strings.
@@ -211,7 +212,7 @@ impl Chunk for StrTChunk {
     }
 }
 
-/// A representation of the "ImpT" chunk.
+/// A representation of the `"ImpT"` chunk.
 #[derive(Debug, PartialEq, Eq)]
 pub struct ImpTChunk {
     /// The list of imported functions.
@@ -248,7 +249,7 @@ impl Chunk for ImpTChunk {
     }
 }
 
-/// A representation of the "ExpT" chunk.
+/// A representation of the `"ExpT"` chunk.
 #[derive(Debug, PartialEq, Eq)]
 pub struct ExpTChunk {
     /// The list of exported functions.
@@ -285,7 +286,7 @@ impl Chunk for ExpTChunk {
     }
 }
 
-/// A representation of the "LitT" chunk.
+/// A representation of the `"LitT"` chunk.
 #[derive(Debug, PartialEq, Eq)]
 pub struct LitTChunk {
     /// The list of literal terms.
@@ -327,14 +328,14 @@ impl Chunk for LitTChunk {
         try!(encoder.write_u32::<BigEndian>(self.literals.len() as u32));
         for literal in &self.literals {
             try!(encoder.write_u32::<BigEndian>(literal.len() as u32));
-            try!(encoder.write_all(&literal));
+            try!(encoder.write_all(literal));
         }
         try!(encoder.finish().into_result());
         Ok(())
     }
 }
 
-/// A representation of the "LocT" chunk.
+/// A representation of the `"LocT"` chunk.
 #[derive(Debug, PartialEq, Eq)]
 pub struct LocTChunk {
     /// The list of local functions.
@@ -371,7 +372,7 @@ impl Chunk for LocTChunk {
     }
 }
 
-/// A representation of the "FunT" chunk.
+/// A representation of the `"FunT"` chunk.
 #[derive(Debug, PartialEq, Eq)]
 pub struct FunTChunk {
     /// The list of anonymous functions.
@@ -414,7 +415,7 @@ impl Chunk for FunTChunk {
     }
 }
 
-/// A representation of the "Attr" chunk.
+/// A representation of the `"Attr"` chunk.
 #[derive(Debug, PartialEq, Eq)]
 pub struct AttrChunk {
     /// The attributes of a module (i.e., BEAM file).
@@ -444,7 +445,7 @@ impl Chunk for AttrChunk {
     }
 }
 
-/// A representation of the "CInf" chunk.
+/// A representation of the `"CInf"` chunk.
 #[derive(Debug, PartialEq, Eq)]
 pub struct CInfChunk {
     /// The compile information of a module (i.e., BEAM file).
@@ -474,7 +475,7 @@ impl Chunk for CInfChunk {
     }
 }
 
-/// A representation of the "Abst" chunk.
+/// A representation of the `"Abst"` chunk.
 #[derive(Debug, PartialEq, Eq)]
 pub struct AbstChunk {
     /// The abstract code of a module (i.e., BEAM file).
