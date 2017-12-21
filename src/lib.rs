@@ -51,31 +51,25 @@ impl std::fmt::Display for Error {
         match *self {
             Error::Io(ref x) => x.fmt(f),
             Error::InvalidString(ref x) => x.fmt(f),
-            Error::UnexpectedMagicNumber { ref magic_number } => {
-                write!(
-                    f,
-                    r#"Unexpected magic number {} (expected b"FOR1")"#,
-                    bytes_to_str(magic_number)
-                )
-            }
-            Error::UnexpectedFormType { ref form_type } => {
-                write!(
-                    f,
-                    r#"Unexpected from type {} (expected b"BEAM")"#,
-                    bytes_to_str(form_type)
-                )
-            }
+            Error::UnexpectedMagicNumber { ref magic_number } => write!(
+                f,
+                r#"Unexpected magic number {} (expected b"FOR1")"#,
+                bytes_to_str(magic_number)
+            ),
+            Error::UnexpectedFormType { ref form_type } => write!(
+                f,
+                r#"Unexpected from type {} (expected b"BEAM")"#,
+                bytes_to_str(form_type)
+            ),
             Error::UnexpectedChunk {
                 ref id,
                 ref expected,
-            } => {
-                write!(
-                    f,
-                    "Unexpected chunk id {} (expected {})",
-                    bytes_to_str(id),
-                    bytes_to_str(expected)
-                )
-            }
+            } => write!(
+                f,
+                "Unexpected chunk id {} (expected {})",
+                bytes_to_str(id),
+                bytes_to_str(expected)
+            ),
         }
     }
 }

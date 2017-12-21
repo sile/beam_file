@@ -35,10 +35,11 @@ impl<C: Chunk> BeamFile<C> {
             return Err(Error::UnexpectedMagicNumber {
                 magic_number: header.magic_number,
             });
-
         }
         if header.type_id != expected.type_id {
-            return Err(Error::UnexpectedFormType { form_type: header.type_id });
+            return Err(Error::UnexpectedFormType {
+                form_type: header.type_id,
+            });
         }
 
         let mut buf = vec![0; (header.payload_size - 4) as usize];

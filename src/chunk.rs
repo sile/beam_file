@@ -50,9 +50,7 @@ pub trait Chunk {
     fn encode<W: Write>(&self, mut writer: W) -> Result<()> {
         let mut buf = Vec::new();
         try!(self.encode_data(&mut buf));
-        try!(aux::Header::new(self.id(), buf.len() as u32).encode(
-            &mut writer,
-        ));
+        try!(aux::Header::new(self.id(), buf.len() as u32).encode(&mut writer,));
         try!(writer.write_all(&buf));
         for _ in 0..aux::padding_size(buf.len() as u32) {
             try!(writer.write_u8(0));
@@ -120,7 +118,9 @@ impl Chunk for AtomChunk {
             try!(reader.read_exact(&mut buf));
 
             let name = try!(str::from_utf8(&buf).map(|s| s.to_string()));
-            atoms.push(parts::Atom { name: name.to_string() });
+            atoms.push(parts::Atom {
+                name: name.to_string(),
+            });
         }
         Ok(AtomChunk { atoms: atoms })
     }
@@ -318,10 +318,9 @@ impl Chunk for LitTChunk {
         Ok(LitTChunk { literals: literals })
     }
     fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
-        let uncompressed_size = self.literals.iter().fold(
-            4,
-            |acc, l| acc + 4 + l.len() as u32,
-        );
+        let uncompressed_size = self.literals
+            .iter()
+            .fold(4, |acc, l| acc + 4 + l.len() as u32);
         try!(writer.write_u32::<BigEndian>(uncompressed_size));
 
         let mut encoder = try!(zlib::Encoder::new(writer));
@@ -399,7 +398,9 @@ impl Chunk for FunTChunk {
                 old_uniq: try!(reader.read_u32::<BigEndian>()),
             });
         }
-        Ok(FunTChunk { functions: functions })
+        Ok(FunTChunk {
+            functions: functions,
+        })
     }
     fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
         try!(writer.write_u32::<BigEndian>(self.functions.len() as u32));
