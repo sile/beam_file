@@ -523,6 +523,89 @@ impl Chunk for AbstChunk {
     }
 }
 
+/// A representation of the `"Dbgi"` chunk.
+#[derive(Debug, PartialEq, Eq)]
+pub struct DbgiChunk {
+    /// The debug information for a module (i.e., BEAM file).
+    ///
+    /// Supercedes 'Abst' in recent versions of OTP by supporting arbitrary abstract formats.
+    ///
+    /// The value is encoded in the [External Term Format]
+    /// (http://erlang.org/doc/apps/erts/erl_ext_dist.html) and
+    /// represents custom debug information in the following term format:
+    ///
+    ///     {debug_info, {Backend, Data}}
+    ///
+    /// Where `Backend` is a module which implements `debug_info/4`, and is responsible for
+    /// converting `Data` to different representations as described [here](http://erlang.org/doc/man/beam_lib.html#type-debug_info).
+    /// Debug information can be used to reconstruct original source code.
+    pub term: parts::ExternalTermFormatBinary,
+}
+impl Chunk for DbgiChunk {
+    fn id(&self) -> &Id {
+        b"Dbgi"
+    }
+    fn decode_data<R: Read>(id: &Id, mut reader: R) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        try!(aux::check_chunk_id(id, b"Dbgi"));
+        let mut buf = Vec::new();
+        try!(reader.read_to_end(&mut buf));
+        Ok(DbgiChunk { term: buf })
+    }
+    fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
+        try!(writer.write_all(&self.term));
+        Ok(())
+    }
+}
+
+/// A representation of the `"Docs"` chunk.
+#[derive(Debug, PartialEq, Eq)]
+pub struct DocsChunk {
+    /// The 'Docs' chunk contains embedded module documentation, such as moduledoc/doc in Elixir
+    ///
+    /// The value is encoded in the [External Term Format]
+    /// (http://erlang.org/doc/apps/erts/erl_ext_dist.html) and
+    /// represents a term in the following format:
+    ///
+    ///     {Module, [{"Docs", DocsBin}]}
+    ///
+    /// Where `Module` is the documented module, and `DocsBin` is a binary in External Term Format
+    /// containing the documentation. Currently, that decodes to:
+    ///
+    ///     {docs_v1, Anno, BeamLang, Format, ModuleDoc, Metadata, Docs}
+    ///       where Anno :: erl_anno:anno(),
+    ///             BeamLang :: erlang | elixir | lfe | alpaca | atom(),
+    ///             Format :: binary(),
+    ///             ModuleDoc :: doc_content(),
+    ///             Metadata :: map(),
+    ///             Docs :: [doc_element()],
+    ///             signature :: [binary],
+    ///             doc_content :: map(binary(), binary()) | none | hidden,
+    ///             doc_element :: {{kind :: atom(), function :: atom(), arity}, Anno, signature, doc_content(), Metadata}
+    ///
+    pub term: parts::ExternalTermFormatBinary,
+}
+impl Chunk for DocsChunk {
+    fn id(&self) -> &Id {
+        b"Docs"
+    }
+    fn decode_data<R: Read>(id: &Id, mut reader: R) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        try!(aux::check_chunk_id(id, b"Docs"));
+        let mut buf = Vec::new();
+        try!(reader.read_to_end(&mut buf));
+        Ok(DocsChunk { term: buf })
+    }
+    fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
+        try!(writer.write_all(&self.term));
+        Ok(())
+    }
+}
+
 /// A representation of commonly used chunk.
 ///
 /// ```
@@ -545,6 +628,8 @@ pub enum StandardChunk {
     Attr(AttrChunk),
     CInf(CInfChunk),
     Abst(AbstChunk),
+    Dbgi(DbgiChunk),
+    Docs(DocsChunk),
     Unknown(RawChunk),
 }
 impl Chunk for StandardChunk {
@@ -562,6 +647,8 @@ impl Chunk for StandardChunk {
             Attr(ref c) => c.id(),
             CInf(ref c) => c.id(),
             Abst(ref c) => c.id(),
+            Dbgi(ref c) => c.id(),
+            Docs(ref c) => c.id(),
             Unknown(ref c) => c.id(),
         }
     }
@@ -583,6 +670,8 @@ impl Chunk for StandardChunk {
             b"Attr" => Ok(Attr(try!(AttrChunk::decode_data(id, reader)))),
             b"CInf" => Ok(CInf(try!(CInfChunk::decode_data(id, reader)))),
             b"Abst" => Ok(Abst(try!(AbstChunk::decode_data(id, reader)))),
+            b"Dbgi" => Ok(Dbgi(try!(DbgiChunk::decode_data(id, reader)))),
+            b"Docs" => Ok(Docs(try!(DocsChunk::decode_data(id, reader)))),
             _ => Ok(Unknown(try!(RawChunk::decode_data(id, reader)))),
         }
     }
@@ -600,6 +689,8 @@ impl Chunk for StandardChunk {
             Attr(ref c) => c.encode_data(writer),
             CInf(ref c) => c.encode_data(writer),
             Abst(ref c) => c.encode_data(writer),
+            Dbgi(ref c) => c.encode_data(writer),
+            Docs(ref c) => c.encode_data(writer),
             Unknown(ref c) => c.encode_data(writer),
         }
     }
