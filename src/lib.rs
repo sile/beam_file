@@ -28,9 +28,9 @@
 extern crate byteorder;
 extern crate libflate;
 
+mod beam_file;
 pub mod chunk;
 pub mod parts;
-mod beam_file;
 
 pub use beam_file::BeamFile;
 pub type RawBeamFile = BeamFile<chunk::RawChunk>;

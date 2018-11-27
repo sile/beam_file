@@ -5,15 +5,15 @@
 //! - [`beam_lib`](http://erlang.org/doc/man/beam_lib.html)
 //!
 //! [BEAM]: http://rnyingma.synrc.com/publications/cat/Functional%20Languages/Erlang/BEAM.pdf
-use std::str;
-use std::io::Read;
-use std::io::Write;
-use std::io::Cursor;
+use byteorder::BigEndian;
 use byteorder::ReadBytesExt;
 use byteorder::WriteBytesExt;
-use byteorder::BigEndian;
 use libflate::zlib;
 use parts;
+use std::io::Cursor;
+use std::io::Read;
+use std::io::Write;
+use std::str;
 use Result;
 
 /// The identifier which indicates the type of a chunk.
@@ -335,7 +335,8 @@ impl Chunk for LitTChunk {
         Ok(LitTChunk { literals: literals })
     }
     fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
-        let uncompressed_size = self.literals
+        let uncompressed_size = self
+            .literals
             .iter()
             .fold(4, |acc, l| acc + 4 + l.len() as u32);
         try!(writer.write_u32::<BigEndian>(uncompressed_size));
@@ -605,11 +606,11 @@ impl Chunk for StandardChunk {
 }
 
 mod aux {
-    use std::io;
+    use super::*;
+    use byteorder::BigEndian;
     use byteorder::ReadBytesExt;
     use byteorder::WriteBytesExt;
-    use byteorder::BigEndian;
-    use super::*;
+    use std::io;
 
     pub struct Header {
         pub chunk_id: Id,

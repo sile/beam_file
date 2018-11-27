@@ -1,14 +1,14 @@
-use std::path::Path;
-use std::fs::File;
-use std::io::Read;
-use std::io::Write;
-use std::io::Cursor;
+use byteorder::BigEndian;
 use byteorder::ReadBytesExt;
 use byteorder::WriteBytesExt;
-use byteorder::BigEndian;
 use chunk::Chunk;
-use Result;
+use std::fs::File;
+use std::io::Cursor;
+use std::io::Read;
+use std::io::Write;
+use std::path::Path;
 use Error;
+use Result;
 
 /// A BEAM File
 ///
