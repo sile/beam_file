@@ -95,21 +95,35 @@ impl Chunk for RawChunk {
     }
 }
 
-/// A representation of the `"Atom"` chunk.
+/// A representation of the `"Atom"` and `"AtU8"` chunks.
 #[derive(Debug, PartialEq, Eq)]
 pub struct AtomChunk {
+    // Whether or not this Atom chunk contains UTF-8 atoms
+    is_unicode: bool,
     /// The list of atoms contained in a BEAM file.
     pub atoms: Vec<parts::Atom>,
 }
 impl Chunk for AtomChunk {
     fn id(&self) -> &Id {
-        b"Atom"
+        if self.is_unicode {
+            b"AtU8"
+        } else {
+            b"Atom"
+        }
     }
     fn decode_data<R: Read>(id: &Id, mut reader: R) -> Result<Self>
     where
         Self: Sized,
     {
-        try!(aux::check_chunk_id(id, b"Atom"));
+        // This chunk can be either Atom or AtU8
+        let unicode;
+        match aux::check_chunk_id(id, b"Atom") {
+            Err(_) => {
+                try!(aux::check_chunk_id(id, b"AtU8"));
+                unicode = true;
+            }
+            Ok(_) => unicode = false,
+        }
         let count = try!(reader.read_u32::<BigEndian>()) as usize;
         let mut atoms = Vec::with_capacity(count);
         for _ in 0..count {
@@ -122,7 +136,10 @@ impl Chunk for AtomChunk {
                 name: name.to_string(),
             });
         }
-        Ok(AtomChunk { atoms: atoms })
+        Ok(AtomChunk {
+            is_unicode: unicode,
+            atoms: atoms,
+        })
     }
     fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
         try!(writer.write_u32::<BigEndian>(self.atoms.len() as u32));
@@ -554,6 +571,7 @@ impl Chunk for StandardChunk {
         use self::StandardChunk::*;
         match id {
             b"Atom" => Ok(Atom(try!(AtomChunk::decode_data(id, reader)))),
+            b"AtU8" => Ok(Atom(try!(AtomChunk::decode_data(id, reader)))),
             b"Code" => Ok(Code(try!(CodeChunk::decode_data(id, reader)))),
             b"StrT" => Ok(StrT(try!(StrTChunk::decode_data(id, reader)))),
             b"ImpT" => Ok(ImpT(try!(ImpTChunk::decode_data(id, reader)))),
