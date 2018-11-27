@@ -14,5 +14,5 @@ travis-ci = {repository = "sile/beam_file"}
 codecov = {repository = "sile/beam_file"}
 
 [dependencies]
-byteorder = "1"
+byteorder = "1.2"
 libflate = "0.1"
