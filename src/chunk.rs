@@ -534,7 +534,9 @@ pub struct DbgiChunk {
     /// (http://erlang.org/doc/apps/erts/erl_ext_dist.html) and
     /// represents custom debug information in the following term format:
     ///
-    ///     {debug_info, {Backend, Data}}
+    /// ```erlang
+    /// {debug_info, {Backend, Data}}
+    /// ```
     ///
     /// Where `Backend` is a module which implements `debug_info/4`, and is responsible for
     /// converting `Data` to different representations as described [here](http://erlang.org/doc/man/beam_lib.html#type-debug_info).
@@ -569,21 +571,25 @@ pub struct DocsChunk {
     /// (http://erlang.org/doc/apps/erts/erl_ext_dist.html) and
     /// represents a term in the following format:
     ///
-    ///     {Module, [{"Docs", DocsBin}]}
+    /// ```erlang
+    /// {Module, [{"Docs", DocsBin}]}
+    /// ```
     ///
     /// Where `Module` is the documented module, and `DocsBin` is a binary in External Term Format
     /// containing the documentation. Currently, that decodes to:
     ///
-    ///     {docs_v1, Anno, BeamLang, Format, ModuleDoc, Metadata, Docs}
-    ///       where Anno :: erl_anno:anno(),
-    ///             BeamLang :: erlang | elixir | lfe | alpaca | atom(),
-    ///             Format :: binary(),
-    ///             ModuleDoc :: doc_content(),
-    ///             Metadata :: map(),
-    ///             Docs :: [doc_element()],
-    ///             signature :: [binary],
-    ///             doc_content :: map(binary(), binary()) | none | hidden,
-    ///             doc_element :: {{kind :: atom(), function :: atom(), arity}, Anno, signature, doc_content(), Metadata}
+    /// ```erlang
+    /// {docs_v1, Anno, BeamLang, Format, ModuleDoc, Metadata, Docs}
+    ///   where Anno :: erl_anno:anno(),
+    ///         BeamLang :: erlang | elixir | lfe | alpaca | atom(),
+    ///         Format :: binary(),
+    ///         ModuleDoc :: doc_content(),
+    ///         Metadata :: map(),
+    ///         Docs :: [doc_element()],
+    ///         signature :: [binary],
+    ///         doc_content :: map(binary(), binary()) | none | hidden,
+    ///         doc_element :: {{kind :: atom(), function :: atom(), arity}, Anno, signature, doc_content(), Metadata}
+    /// ```
     ///
     pub term: parts::ExternalTermFormatBinary,
 }
