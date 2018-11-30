@@ -5,15 +5,12 @@
 //! - [`beam_lib`](http://erlang.org/doc/man/beam_lib.html)
 //!
 //! [BEAM]: http://rnyingma.synrc.com/publications/cat/Functional%20Languages/Erlang/BEAM.pdf
-use byteorder::BigEndian;
-use byteorder::ReadBytesExt;
-use byteorder::WriteBytesExt;
+use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use libflate::zlib;
-use parts;
-use std::io::Cursor;
-use std::io::Read;
-use std::io::Write;
+use std::io::{Cursor, Read, Write};
 use std::str;
+
+use parts;
 use Result;
 
 /// The identifier which indicates the type of a chunk.
@@ -138,7 +135,7 @@ impl Chunk for AtomChunk {
         }
         Ok(AtomChunk {
             is_unicode: unicode,
-            atoms: atoms,
+            atoms,
         })
     }
     fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
@@ -253,7 +250,7 @@ impl Chunk for ImpTChunk {
                 arity: try!(reader.read_u32::<BigEndian>()),
             });
         }
-        Ok(ImpTChunk { imports: imports })
+        Ok(ImpTChunk { imports })
     }
     fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
         try!(writer.write_u32::<BigEndian>(self.imports.len() as u32));
@@ -290,7 +287,7 @@ impl Chunk for ExpTChunk {
                 label: try!(reader.read_u32::<BigEndian>()),
             });
         }
-        Ok(ExpTChunk { exports: exports })
+        Ok(ExpTChunk { exports })
     }
     fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
         try!(writer.write_u32::<BigEndian>(self.exports.len() as u32));
@@ -332,7 +329,7 @@ impl Chunk for LitTChunk {
             try!(decoder.read_exact(&mut buf));
             literals.push(buf);
         }
-        Ok(LitTChunk { literals: literals })
+        Ok(LitTChunk { literals })
     }
     fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
         let uncompressed_size = self
@@ -376,7 +373,7 @@ impl Chunk for LocTChunk {
                 label: try!(reader.read_u32::<BigEndian>()),
             });
         }
-        Ok(LocTChunk { locals: locals })
+        Ok(LocTChunk { locals })
     }
     fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
         try!(writer.write_u32::<BigEndian>(self.locals.len() as u32));
@@ -416,9 +413,7 @@ impl Chunk for FunTChunk {
                 old_uniq: try!(reader.read_u32::<BigEndian>()),
             });
         }
-        Ok(FunTChunk {
-            functions: functions,
-        })
+        Ok(FunTChunk { functions })
     }
     fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
         try!(writer.write_u32::<BigEndian>(self.functions.len() as u32));
@@ -717,7 +712,7 @@ mod aux {
         pub fn new(chunk_id: &Id, data_size: u32) -> Self {
             Header {
                 chunk_id: *chunk_id,
-                data_size: data_size,
+                data_size,
             }
         }
         pub fn decode<R: io::Read>(mut reader: R) -> io::Result<Self> {

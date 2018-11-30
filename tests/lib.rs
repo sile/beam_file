@@ -1,56 +1,33 @@
 extern crate beam_file;
 
-use std::io::Read;
-use std::io::Write;
-use std::path::PathBuf;
-use std::fs::File;
-use beam_file::BeamFile;
-use beam_file::RawBeamFile;
-use beam_file::StandardBeamFile;
 use beam_file::chunk;
 use beam_file::chunk::Chunk;
 use beam_file::parts;
+use beam_file::BeamFile;
+use beam_file::RawBeamFile;
 use beam_file::Result;
+use beam_file::StandardBeamFile;
+use std::fs::File;
+use std::io::Read;
+use std::io::Write;
+use std::path::PathBuf;
 
 #[test]
 fn raw_chunks() {
     let beam = RawBeamFile::from_file(test_file("test.beam")).unwrap();
 
     // Chunk List
-    let expected =
-        vec![
-            "Atom",
-            "Code",
-            "StrT",
-            "ImpT",
-            "ExpT",
-            "FunT",
-            "LitT",
-            "LocT",
-            "Attr",
-            "CInf",
-            "Abst",
-            "Line",
-        ];
+    let expected = vec![
+        "Atom", "Code", "StrT", "ImpT", "ExpT", "FunT", "LitT", "LocT", "Attr", "CInf", "Abst",
+        "Line",
+    ];
     assert_eq!(expected, collect_id(&beam.chunks));
 
-    let expected =
-        vec![
-            "AtU8",
-            "Code",
-            "StrT",
-            "ImpT",
-            "ExpT",
-            "FunT",
-            "LitT",
-            "LocT",
-            "Attr",
-            "CInf",
-            "Dbgi",
-            "Docs",
-            "ExDp", // Elixir-specific, deprecated exports
-            "Line",
-        ];
+    let expected = vec![
+        "AtU8", "Code", "StrT", "ImpT", "ExpT", "FunT", "LitT", "LocT", "Attr", "CInf", "Dbgi",
+        "Docs", "ExDp", // Elixir-specific, deprecated exports
+        "Line",
+    ];
     let beam = RawBeamFile::from_file(test_file("Elixir.Unicode.beam")).unwrap();
     assert_eq!(expected, collect_id(&beam.chunks));
 }
@@ -58,14 +35,20 @@ fn raw_chunks() {
 #[test]
 fn standard_chunks() {
     use beam_file::chunk::StandardChunk::*;
-    macro_rules! find_chunk{
-        ($beam:expr, $chunk:ident) => (
+    macro_rules! find_chunk {
+        ($beam:expr, $chunk:ident) => {
             $beam
-                .chunks.iter()
-                .filter_map(|c| if let $chunk(ref x) = *c { Some(x) } else { None })
-                .nth(0)
+                .chunks
+                .iter()
+                .filter_map(|c| {
+                    if let $chunk(ref x) = *c {
+                        Some(x)
+                    } else {
+                        None
+                    }
+                }).nth(0)
                 .unwrap()
-        )
+        };
     }
 
     let beam = StandardBeamFile::from_file(test_file("test.beam")).unwrap();
@@ -73,17 +56,7 @@ fn standard_chunks() {
     // Chunk List
     assert_eq!(
         vec![
-            "Atom",
-            "Code",
-            "StrT",
-            "ImpT",
-            "ExpT",
-            "FunT",
-            "LitT",
-            "LocT",
-            "Attr",
-            "CInf",
-            "Abst",
+            "Atom", "Code", "StrT", "ImpT", "ExpT", "FunT", "LitT", "LocT", "Attr", "CInf", "Abst",
             "Line",
         ],
         collect_id(&beam.chunks)
@@ -226,9 +199,9 @@ impl chunk::Chunk for EncodeTestChunk {
         use self::EncodeTestChunk::*;
         match id {
             b"LitT" => Ok(Other(try!(chunk::RawChunk::decode_data(id, reader)))),
-            _ => Ok(Idempotent(
-                try!(chunk::StandardChunk::decode_data(id, reader)),
-            )),
+            _ => Ok(Idempotent(try!(chunk::StandardChunk::decode_data(
+                id, reader
+            )))),
         }
     }
     fn encode_data<W: Write>(&self, writer: W) -> Result<()> {

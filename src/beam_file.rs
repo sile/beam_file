@@ -1,14 +1,10 @@
-use byteorder::BigEndian;
-use byteorder::ReadBytesExt;
-use byteorder::WriteBytesExt;
-use chunk::Chunk;
+use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::fs::File;
-use std::io::Cursor;
-use std::io::Read;
-use std::io::Write;
+use std::io::{Cursor, Read, Write};
 use std::path::Path;
-use Error;
-use Result;
+
+use chunk::Chunk;
+use {Error, Result};
 
 /// A BEAM File
 ///
@@ -50,7 +46,7 @@ impl<C: Chunk> BeamFile<C> {
         while cursor.position() < buf.len() as u64 {
             chunks.push(try!(C::decode(&mut cursor)));
         }
-        Ok(BeamFile { chunks: chunks })
+        Ok(BeamFile { chunks })
     }
 
     pub fn to_file<P: AsRef<Path>>(&self, path: P) -> Result<()> {
@@ -79,7 +75,7 @@ impl Header {
     fn new(payload_size: u32) -> Self {
         Header {
             magic_number: *b"FOR1",
-            payload_size: payload_size,
+            payload_size,
             type_id: *b"BEAM",
         }
     }
