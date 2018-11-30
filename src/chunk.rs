@@ -5,15 +5,15 @@
 //! - [`beam_lib`](http://erlang.org/doc/man/beam_lib.html)
 //!
 //! [BEAM]: http://rnyingma.synrc.com/publications/cat/Functional%20Languages/Erlang/BEAM.pdf
-use std::str;
-use std::io::Read;
-use std::io::Write;
-use std::io::Cursor;
+use byteorder::BigEndian;
 use byteorder::ReadBytesExt;
 use byteorder::WriteBytesExt;
-use byteorder::BigEndian;
 use libflate::zlib;
 use parts;
+use std::io::Cursor;
+use std::io::Read;
+use std::io::Write;
+use std::str;
 use Result;
 
 /// The identifier which indicates the type of a chunk.
@@ -95,21 +95,35 @@ impl Chunk for RawChunk {
     }
 }
 
-/// A representation of the `"Atom"` chunk.
+/// A representation of the `"Atom"` and `"AtU8"` chunks.
 #[derive(Debug, PartialEq, Eq)]
 pub struct AtomChunk {
+    // Whether or not this Atom chunk contains UTF-8 atoms
+    is_unicode: bool,
     /// The list of atoms contained in a BEAM file.
     pub atoms: Vec<parts::Atom>,
 }
 impl Chunk for AtomChunk {
     fn id(&self) -> &Id {
-        b"Atom"
+        if self.is_unicode {
+            b"AtU8"
+        } else {
+            b"Atom"
+        }
     }
     fn decode_data<R: Read>(id: &Id, mut reader: R) -> Result<Self>
     where
         Self: Sized,
     {
-        try!(aux::check_chunk_id(id, b"Atom"));
+        // This chunk can be either Atom or AtU8
+        let unicode;
+        match aux::check_chunk_id(id, b"Atom") {
+            Err(_) => {
+                try!(aux::check_chunk_id(id, b"AtU8"));
+                unicode = true;
+            }
+            Ok(_) => unicode = false,
+        }
         let count = try!(reader.read_u32::<BigEndian>()) as usize;
         let mut atoms = Vec::with_capacity(count);
         for _ in 0..count {
@@ -122,7 +136,10 @@ impl Chunk for AtomChunk {
                 name: name.to_string(),
             });
         }
-        Ok(AtomChunk { atoms: atoms })
+        Ok(AtomChunk {
+            is_unicode: unicode,
+            atoms: atoms,
+        })
     }
     fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
         try!(writer.write_u32::<BigEndian>(self.atoms.len() as u32));
@@ -318,7 +335,8 @@ impl Chunk for LitTChunk {
         Ok(LitTChunk { literals: literals })
     }
     fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
-        let uncompressed_size = self.literals
+        let uncompressed_size = self
+            .literals
             .iter()
             .fold(4, |acc, l| acc + 4 + l.len() as u32);
         try!(writer.write_u32::<BigEndian>(uncompressed_size));
@@ -505,6 +523,95 @@ impl Chunk for AbstChunk {
     }
 }
 
+/// A representation of the `"Dbgi"` chunk.
+#[derive(Debug, PartialEq, Eq)]
+pub struct DbgiChunk {
+    /// The debug information for a module (i.e., BEAM file).
+    ///
+    /// Supercedes 'Abst' in recent versions of OTP by supporting arbitrary abstract formats.
+    ///
+    /// The value is encoded in the [External Term Format]
+    /// (http://erlang.org/doc/apps/erts/erl_ext_dist.html) and
+    /// represents custom debug information in the following term format:
+    ///
+    /// ```erlang
+    /// {debug_info, {Backend, Data}}
+    /// ```
+    ///
+    /// Where `Backend` is a module which implements `debug_info/4`, and is responsible for
+    /// converting `Data` to different representations as described [here](http://erlang.org/doc/man/beam_lib.html#type-debug_info).
+    /// Debug information can be used to reconstruct original source code.
+    pub term: parts::ExternalTermFormatBinary,
+}
+impl Chunk for DbgiChunk {
+    fn id(&self) -> &Id {
+        b"Dbgi"
+    }
+    fn decode_data<R: Read>(id: &Id, mut reader: R) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        try!(aux::check_chunk_id(id, b"Dbgi"));
+        let mut buf = Vec::new();
+        try!(reader.read_to_end(&mut buf));
+        Ok(DbgiChunk { term: buf })
+    }
+    fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
+        try!(writer.write_all(&self.term));
+        Ok(())
+    }
+}
+
+/// A representation of the `"Docs"` chunk.
+#[derive(Debug, PartialEq, Eq)]
+pub struct DocsChunk {
+    /// The 'Docs' chunk contains embedded module documentation, such as moduledoc/doc in Elixir
+    ///
+    /// The value is encoded in the [External Term Format]
+    /// (http://erlang.org/doc/apps/erts/erl_ext_dist.html) and
+    /// represents a term in the following format:
+    ///
+    /// ```erlang
+    /// {Module, [{"Docs", DocsBin}]}
+    /// ```
+    ///
+    /// Where `Module` is the documented module, and `DocsBin` is a binary in External Term Format
+    /// containing the documentation. Currently, that decodes to:
+    ///
+    /// ```erlang
+    /// {docs_v1, Anno, BeamLang, Format, ModuleDoc, Metadata, Docs}
+    ///   where Anno :: erl_anno:anno(),
+    ///         BeamLang :: erlang | elixir | lfe | alpaca | atom(),
+    ///         Format :: binary(),
+    ///         ModuleDoc :: doc_content(),
+    ///         Metadata :: map(),
+    ///         Docs :: [doc_element()],
+    ///         signature :: [binary],
+    ///         doc_content :: map(binary(), binary()) | none | hidden,
+    ///         doc_element :: {{kind :: atom(), function :: atom(), arity}, Anno, signature, doc_content(), Metadata}
+    /// ```
+    ///
+    pub term: parts::ExternalTermFormatBinary,
+}
+impl Chunk for DocsChunk {
+    fn id(&self) -> &Id {
+        b"Docs"
+    }
+    fn decode_data<R: Read>(id: &Id, mut reader: R) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        try!(aux::check_chunk_id(id, b"Docs"));
+        let mut buf = Vec::new();
+        try!(reader.read_to_end(&mut buf));
+        Ok(DocsChunk { term: buf })
+    }
+    fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
+        try!(writer.write_all(&self.term));
+        Ok(())
+    }
+}
+
 /// A representation of commonly used chunk.
 ///
 /// ```
@@ -527,6 +634,8 @@ pub enum StandardChunk {
     Attr(AttrChunk),
     CInf(CInfChunk),
     Abst(AbstChunk),
+    Dbgi(DbgiChunk),
+    Docs(DocsChunk),
     Unknown(RawChunk),
 }
 impl Chunk for StandardChunk {
@@ -544,6 +653,8 @@ impl Chunk for StandardChunk {
             Attr(ref c) => c.id(),
             CInf(ref c) => c.id(),
             Abst(ref c) => c.id(),
+            Dbgi(ref c) => c.id(),
+            Docs(ref c) => c.id(),
             Unknown(ref c) => c.id(),
         }
     }
@@ -554,6 +665,7 @@ impl Chunk for StandardChunk {
         use self::StandardChunk::*;
         match id {
             b"Atom" => Ok(Atom(try!(AtomChunk::decode_data(id, reader)))),
+            b"AtU8" => Ok(Atom(try!(AtomChunk::decode_data(id, reader)))),
             b"Code" => Ok(Code(try!(CodeChunk::decode_data(id, reader)))),
             b"StrT" => Ok(StrT(try!(StrTChunk::decode_data(id, reader)))),
             b"ImpT" => Ok(ImpT(try!(ImpTChunk::decode_data(id, reader)))),
@@ -564,6 +676,8 @@ impl Chunk for StandardChunk {
             b"Attr" => Ok(Attr(try!(AttrChunk::decode_data(id, reader)))),
             b"CInf" => Ok(CInf(try!(CInfChunk::decode_data(id, reader)))),
             b"Abst" => Ok(Abst(try!(AbstChunk::decode_data(id, reader)))),
+            b"Dbgi" => Ok(Dbgi(try!(DbgiChunk::decode_data(id, reader)))),
+            b"Docs" => Ok(Docs(try!(DocsChunk::decode_data(id, reader)))),
             _ => Ok(Unknown(try!(RawChunk::decode_data(id, reader)))),
         }
     }
@@ -581,17 +695,19 @@ impl Chunk for StandardChunk {
             Attr(ref c) => c.encode_data(writer),
             CInf(ref c) => c.encode_data(writer),
             Abst(ref c) => c.encode_data(writer),
+            Dbgi(ref c) => c.encode_data(writer),
+            Docs(ref c) => c.encode_data(writer),
             Unknown(ref c) => c.encode_data(writer),
         }
     }
 }
 
 mod aux {
-    use std::io;
+    use super::*;
+    use byteorder::BigEndian;
     use byteorder::ReadBytesExt;
     use byteorder::WriteBytesExt;
-    use byteorder::BigEndian;
-    use super::*;
+    use std::io;
 
     pub struct Header {
         pub chunk_id: Id,

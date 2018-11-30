@@ -17,7 +17,7 @@ fn raw_chunks() {
     let beam = RawBeamFile::from_file(test_file("test.beam")).unwrap();
 
     // Chunk List
-    assert_eq!(
+    let expected =
         vec![
             "Atom",
             "Code",
@@ -31,9 +31,28 @@ fn raw_chunks() {
             "CInf",
             "Abst",
             "Line",
-        ],
-        collect_id(&beam.chunks)
-    );
+        ];
+    assert_eq!(expected, collect_id(&beam.chunks));
+
+    let expected =
+        vec![
+            "AtU8",
+            "Code",
+            "StrT",
+            "ImpT",
+            "ExpT",
+            "FunT",
+            "LitT",
+            "LocT",
+            "Attr",
+            "CInf",
+            "Dbgi",
+            "Docs",
+            "ExDp", // Elixir-specific, deprecated exports
+            "Line",
+        ];
+    let beam = RawBeamFile::from_file(test_file("Elixir.Unicode.beam")).unwrap();
+    assert_eq!(expected, collect_id(&beam.chunks));
 }
 
 #[test]
