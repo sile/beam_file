@@ -47,7 +47,7 @@ pub trait Chunk {
     fn encode<W: Write>(&self, mut writer: W) -> Result<()> {
         let mut buf = Vec::new();
         self.encode_data(&mut buf)?;
-        aux::Header::new(self.id(), buf.len() as u32).encode(&mut writer,)?;
+        aux::Header::new(self.id(), buf.len() as u32).encode(&mut writer)?;
         writer.write_all(&buf)?;
         for _ in 0..aux::padding_size(buf.len() as u32) {
             writer.write_u8(0)?;
