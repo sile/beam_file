@@ -25,8 +25,8 @@
 //! let beam = RawBeamFile{chunks: vec![chunk]};
 //! beam.to_file("my.beam").unwrap();
 //! ```
-extern crate byteorder;
-extern crate libflate;
+
+
 
 mod beam_file;
 pub mod chunk;
@@ -47,7 +47,7 @@ pub enum Error {
     UnexpectedChunk { id: chunk::Id, expected: chunk::Id },
 }
 impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match *self {
             Error::Io(ref x) => x.fmt(f),
             Error::InvalidString(ref x) => x.fmt(f),

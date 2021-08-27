@@ -1,4 +1,4 @@
-extern crate beam_file;
+
 
 use beam_file::chunk;
 use beam_file::chunk::Chunk;
