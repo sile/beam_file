@@ -17,4 +17,4 @@ codecov = {repository = "sile/beam_file"}
 [dependencies]
 thiserror = "^1"
 byteorder = "1.2"
-libflate = "0.1"
+libflate = "^1"
