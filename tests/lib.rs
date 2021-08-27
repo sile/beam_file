@@ -198,8 +198,8 @@ impl chunk::Chunk for EncodeTestChunk {
     {
         use self::EncodeTestChunk::*;
         match id {
-            b"LitT" => Ok(Other(try!(chunk::RawChunk::decode_data(id, reader)))),
-            _ => Ok(Idempotent(try!(chunk::StandardChunk::decode_data(
+            b"LitT" => Ok(Other(r#try!(chunk::RawChunk::decode_data(id, reader)))),
+            _ => Ok(Idempotent(r#try!(chunk::StandardChunk::decode_data(
                 id, reader
             )))),
         }

@@ -32,7 +32,7 @@ mod beam_file;
 pub mod chunk;
 pub mod parts;
 
-pub use beam_file::BeamFile;
+pub use crate::beam_file::BeamFile;
 pub type RawBeamFile = BeamFile<chunk::RawChunk>;
 pub type StandardBeamFile = BeamFile<chunk::StandardChunk>;
 
@@ -83,7 +83,7 @@ impl std::error::Error for Error {
             Error::UnexpectedChunk { .. } => "Unexpected chunk",
         }
     }
-    fn cause(&self) -> Option<&std::error::Error> {
+    fn cause(&self) -> Option<&dyn std::error::Error> {
         match *self {
             Error::Io(ref x) => Some(x),
             Error::InvalidString(ref x) => Some(x),
