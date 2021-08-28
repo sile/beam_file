@@ -23,7 +23,7 @@ Add following lines to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-beam_file = "0.2"
+beam_file = "0.3"
 ```
 
 Reference
