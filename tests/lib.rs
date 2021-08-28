@@ -1,5 +1,3 @@
-extern crate beam_file;
-
 use beam_file::chunk;
 use beam_file::chunk::Chunk;
 use beam_file::parts;
@@ -46,7 +44,8 @@ fn standard_chunks() {
                     } else {
                         None
                     }
-                }).nth(0)
+                })
+                .nth(0)
                 .unwrap()
         };
     }
@@ -198,10 +197,8 @@ impl chunk::Chunk for EncodeTestChunk {
     {
         use self::EncodeTestChunk::*;
         match id {
-            b"LitT" => Ok(Other(try!(chunk::RawChunk::decode_data(id, reader)))),
-            _ => Ok(Idempotent(try!(chunk::StandardChunk::decode_data(
-                id, reader
-            )))),
+            b"LitT" => Ok(Other(chunk::RawChunk::decode_data(id, reader)?)),
+            _ => Ok(Idempotent(chunk::StandardChunk::decode_data(id, reader)?)),
         }
     }
     fn encode_data<W: Write>(&self, writer: W) -> Result<()> {
@@ -219,7 +216,8 @@ fn encode_chunks() {
     std::io::copy(
         &mut File::open(test_file("test.beam")).unwrap(),
         &mut original,
-    ).unwrap();
+    )
+    .unwrap();
 
     let beam = BeamFile::<EncodeTestChunk>::from_reader(std::io::Cursor::new(&original)).unwrap();
     let mut encoded = Vec::new();

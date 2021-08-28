@@ -10,8 +10,8 @@ use libflate::zlib;
 use std::io::{Cursor, Read, Write};
 use std::str;
 
-use parts;
-use Result;
+use crate::parts;
+use crate::Result;
 
 /// The identifier which indicates the type of a chunk.
 pub type Id = [u8; 4];
@@ -26,11 +26,11 @@ pub trait Chunk {
     where
         Self: Sized,
     {
-        let header = try!(aux::Header::decode(&mut reader));
+        let header = aux::Header::decode(&mut reader)?;
         let mut buf = vec![0; header.data_size as usize];
-        try!(reader.read_exact(&mut buf));
+        reader.read_exact(&mut buf)?;
         for _ in 0..aux::padding_size(header.data_size) {
-            try!(reader.read_u8());
+            reader.read_u8()?;
         }
 
         Self::decode_data(&header.chunk_id, Cursor::new(&buf))
@@ -46,11 +46,11 @@ pub trait Chunk {
     /// Writes the chunk to `writer`.
     fn encode<W: Write>(&self, mut writer: W) -> Result<()> {
         let mut buf = Vec::new();
-        try!(self.encode_data(&mut buf));
-        try!(aux::Header::new(self.id(), buf.len() as u32).encode(&mut writer,));
-        try!(writer.write_all(&buf));
+        self.encode_data(&mut buf)?;
+        aux::Header::new(self.id(), buf.len() as u32).encode(&mut writer)?;
+        writer.write_all(&buf)?;
         for _ in 0..aux::padding_size(buf.len() as u32) {
-            try!(writer.write_u8(0));
+            writer.write_u8(0)?;
         }
         Ok(())
     }
@@ -83,11 +83,11 @@ impl Chunk for RawChunk {
         Self: Sized,
     {
         let mut buf = Vec::new();
-        try!(reader.read_to_end(&mut buf));
+        reader.read_to_end(&mut buf)?;
         Ok(RawChunk { id: *id, data: buf })
     }
     fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
-        try!(writer.write_all(&self.data));
+        writer.write_all(&self.data)?;
         Ok(())
     }
 }
@@ -116,19 +116,19 @@ impl Chunk for AtomChunk {
         let unicode;
         match aux::check_chunk_id(id, b"Atom") {
             Err(_) => {
-                try!(aux::check_chunk_id(id, b"AtU8"));
+                aux::check_chunk_id(id, b"AtU8")?;
                 unicode = true;
             }
             Ok(_) => unicode = false,
         }
-        let count = try!(reader.read_u32::<BigEndian>()) as usize;
+        let count = reader.read_u32::<BigEndian>()? as usize;
         let mut atoms = Vec::with_capacity(count);
         for _ in 0..count {
-            let len = try!(reader.read_u8()) as usize;
+            let len = reader.read_u8()? as usize;
             let mut buf = vec![0; len];
-            try!(reader.read_exact(&mut buf));
+            reader.read_exact(&mut buf)?;
 
-            let name = try!(str::from_utf8(&buf).map(|s| s.to_string()));
+            let name = str::from_utf8(&buf).map(|s| s.to_string())?;
             atoms.push(parts::Atom {
                 name: name.to_string(),
             });
@@ -139,11 +139,11 @@ impl Chunk for AtomChunk {
         })
     }
     fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
-        try!(writer.write_u32::<BigEndian>(self.atoms.len() as u32));
+        writer.write_u32::<BigEndian>(self.atoms.len() as u32)?;
         for atom in &self.atoms {
             assert!(atom.name.len() < 0x100);
-            try!(writer.write_u8(atom.name.len() as u8));
-            try!(writer.write_all(atom.name.as_bytes()));
+            writer.write_u8(atom.name.len() as u8)?;
+            writer.write_all(atom.name.as_bytes())?;
         }
         Ok(())
     }
@@ -178,25 +178,25 @@ impl Chunk for CodeChunk {
     where
         Self: Sized,
     {
-        try!(aux::check_chunk_id(id, b"Code"));
+        aux::check_chunk_id(id, b"Code")?;
         let mut code = CodeChunk {
-            info_size: try!(reader.read_u32::<BigEndian>()),
-            version: try!(reader.read_u32::<BigEndian>()),
-            opcode_max: try!(reader.read_u32::<BigEndian>()),
-            label_count: try!(reader.read_u32::<BigEndian>()),
-            function_count: try!(reader.read_u32::<BigEndian>()),
+            info_size: reader.read_u32::<BigEndian>()?,
+            version: reader.read_u32::<BigEndian>()?,
+            opcode_max: reader.read_u32::<BigEndian>()?,
+            label_count: reader.read_u32::<BigEndian>()?,
+            function_count: reader.read_u32::<BigEndian>()?,
             bytecode: Vec::new(),
         };
-        try!(reader.read_to_end(&mut code.bytecode));
+        reader.read_to_end(&mut code.bytecode)?;
         Ok(code)
     }
     fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
-        try!(writer.write_u32::<BigEndian>(self.info_size));
-        try!(writer.write_u32::<BigEndian>(self.version));
-        try!(writer.write_u32::<BigEndian>(self.opcode_max));
-        try!(writer.write_u32::<BigEndian>(self.label_count));
-        try!(writer.write_u32::<BigEndian>(self.function_count));
-        try!(writer.write_all(&self.bytecode));
+        writer.write_u32::<BigEndian>(self.info_size)?;
+        writer.write_u32::<BigEndian>(self.version)?;
+        writer.write_u32::<BigEndian>(self.opcode_max)?;
+        writer.write_u32::<BigEndian>(self.label_count)?;
+        writer.write_u32::<BigEndian>(self.function_count)?;
+        writer.write_all(&self.bytecode)?;
         Ok(())
     }
 }
@@ -215,13 +215,13 @@ impl Chunk for StrTChunk {
     where
         Self: Sized,
     {
-        try!(aux::check_chunk_id(id, b"StrT"));
+        aux::check_chunk_id(id, b"StrT")?;
         let mut buf = Vec::new();
-        try!(reader.read_to_end(&mut buf));
+        reader.read_to_end(&mut buf)?;
         Ok(StrTChunk { strings: buf })
     }
     fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
-        try!(writer.write_all(&self.strings));
+        writer.write_all(&self.strings)?;
         Ok(())
     }
 }
@@ -240,24 +240,24 @@ impl Chunk for ImpTChunk {
     where
         Self: Sized,
     {
-        try!(aux::check_chunk_id(id, b"ImpT"));
-        let count = try!(reader.read_u32::<BigEndian>()) as usize;
+        aux::check_chunk_id(id, b"ImpT")?;
+        let count = reader.read_u32::<BigEndian>()? as usize;
         let mut imports = Vec::with_capacity(count);
         for _ in 0..count {
             imports.push(parts::Import {
-                module: try!(reader.read_u32::<BigEndian>()),
-                function: try!(reader.read_u32::<BigEndian>()),
-                arity: try!(reader.read_u32::<BigEndian>()),
+                module: reader.read_u32::<BigEndian>()?,
+                function: reader.read_u32::<BigEndian>()?,
+                arity: reader.read_u32::<BigEndian>()?,
             });
         }
         Ok(ImpTChunk { imports })
     }
     fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
-        try!(writer.write_u32::<BigEndian>(self.imports.len() as u32));
+        writer.write_u32::<BigEndian>(self.imports.len() as u32)?;
         for import in &self.imports {
-            try!(writer.write_u32::<BigEndian>(import.module));
-            try!(writer.write_u32::<BigEndian>(import.function));
-            try!(writer.write_u32::<BigEndian>(import.arity));
+            writer.write_u32::<BigEndian>(import.module)?;
+            writer.write_u32::<BigEndian>(import.function)?;
+            writer.write_u32::<BigEndian>(import.arity)?;
         }
         Ok(())
     }
@@ -277,24 +277,24 @@ impl Chunk for ExpTChunk {
     where
         Self: Sized,
     {
-        try!(aux::check_chunk_id(id, b"ExpT"));
-        let count = try!(reader.read_u32::<BigEndian>()) as usize;
+        aux::check_chunk_id(id, b"ExpT")?;
+        let count = reader.read_u32::<BigEndian>()? as usize;
         let mut exports = Vec::with_capacity(count);
         for _ in 0..count {
             exports.push(parts::Export {
-                function: try!(reader.read_u32::<BigEndian>()),
-                arity: try!(reader.read_u32::<BigEndian>()),
-                label: try!(reader.read_u32::<BigEndian>()),
+                function: reader.read_u32::<BigEndian>()?,
+                arity: reader.read_u32::<BigEndian>()?,
+                label: reader.read_u32::<BigEndian>()?,
             });
         }
         Ok(ExpTChunk { exports })
     }
     fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
-        try!(writer.write_u32::<BigEndian>(self.exports.len() as u32));
+        writer.write_u32::<BigEndian>(self.exports.len() as u32)?;
         for export in &self.exports {
-            try!(writer.write_u32::<BigEndian>(export.function));
-            try!(writer.write_u32::<BigEndian>(export.arity));
-            try!(writer.write_u32::<BigEndian>(export.label));
+            writer.write_u32::<BigEndian>(export.function)?;
+            writer.write_u32::<BigEndian>(export.arity)?;
+            writer.write_u32::<BigEndian>(export.label)?;
         }
         Ok(())
     }
@@ -317,16 +317,16 @@ impl Chunk for LitTChunk {
     where
         Self: Sized,
     {
-        try!(aux::check_chunk_id(id, b"LitT"));
-        let _uncompressed_size = try!(reader.read_u32::<BigEndian>());
-        let mut decoder = try!(zlib::Decoder::new(reader));
+        aux::check_chunk_id(id, b"LitT")?;
+        let _uncompressed_size = reader.read_u32::<BigEndian>()?;
+        let mut decoder = zlib::Decoder::new(reader)?;
 
-        let count = try!(decoder.read_u32::<BigEndian>()) as usize;
+        let count = decoder.read_u32::<BigEndian>()? as usize;
         let mut literals = Vec::with_capacity(count);
         for _ in 0..count {
-            let literal_size = try!(decoder.read_u32::<BigEndian>()) as usize;
+            let literal_size = decoder.read_u32::<BigEndian>()? as usize;
             let mut buf = vec![0; literal_size];
-            try!(decoder.read_exact(&mut buf));
+            decoder.read_exact(&mut buf)?;
             literals.push(buf);
         }
         Ok(LitTChunk { literals })
@@ -336,15 +336,15 @@ impl Chunk for LitTChunk {
             .literals
             .iter()
             .fold(4, |acc, l| acc + 4 + l.len() as u32);
-        try!(writer.write_u32::<BigEndian>(uncompressed_size));
+        writer.write_u32::<BigEndian>(uncompressed_size)?;
 
-        let mut encoder = try!(zlib::Encoder::new(writer));
-        try!(encoder.write_u32::<BigEndian>(self.literals.len() as u32));
+        let mut encoder = zlib::Encoder::new(writer)?;
+        encoder.write_u32::<BigEndian>(self.literals.len() as u32)?;
         for literal in &self.literals {
-            try!(encoder.write_u32::<BigEndian>(literal.len() as u32));
-            try!(encoder.write_all(literal));
+            encoder.write_u32::<BigEndian>(literal.len() as u32)?;
+            encoder.write_all(literal)?;
         }
-        try!(encoder.finish().into_result());
+        encoder.finish().into_result()?;
         Ok(())
     }
 }
@@ -363,24 +363,24 @@ impl Chunk for LocTChunk {
     where
         Self: Sized,
     {
-        try!(aux::check_chunk_id(id, b"LocT"));
-        let count = try!(reader.read_u32::<BigEndian>()) as usize;
+        aux::check_chunk_id(id, b"LocT")?;
+        let count = reader.read_u32::<BigEndian>()? as usize;
         let mut locals = Vec::with_capacity(count);
         for _ in 0..count {
             locals.push(parts::Local {
-                function: try!(reader.read_u32::<BigEndian>()),
-                arity: try!(reader.read_u32::<BigEndian>()),
-                label: try!(reader.read_u32::<BigEndian>()),
+                function: reader.read_u32::<BigEndian>()?,
+                arity: reader.read_u32::<BigEndian>()?,
+                label: reader.read_u32::<BigEndian>()?,
             });
         }
         Ok(LocTChunk { locals })
     }
     fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
-        try!(writer.write_u32::<BigEndian>(self.locals.len() as u32));
+        writer.write_u32::<BigEndian>(self.locals.len() as u32)?;
         for local in &self.locals {
-            try!(writer.write_u32::<BigEndian>(local.function));
-            try!(writer.write_u32::<BigEndian>(local.arity));
-            try!(writer.write_u32::<BigEndian>(local.label));
+            writer.write_u32::<BigEndian>(local.function)?;
+            writer.write_u32::<BigEndian>(local.arity)?;
+            writer.write_u32::<BigEndian>(local.label)?;
         }
         Ok(())
     }
@@ -400,30 +400,30 @@ impl Chunk for FunTChunk {
     where
         Self: Sized,
     {
-        try!(aux::check_chunk_id(id, b"FunT"));
-        let count = try!(reader.read_u32::<BigEndian>()) as usize;
+        aux::check_chunk_id(id, b"FunT")?;
+        let count = reader.read_u32::<BigEndian>()? as usize;
         let mut functions = Vec::with_capacity(count);
         for _ in 0..count {
             functions.push(parts::Function {
-                function: try!(reader.read_u32::<BigEndian>()),
-                arity: try!(reader.read_u32::<BigEndian>()),
-                label: try!(reader.read_u32::<BigEndian>()),
-                index: try!(reader.read_u32::<BigEndian>()),
-                num_free: try!(reader.read_u32::<BigEndian>()),
-                old_uniq: try!(reader.read_u32::<BigEndian>()),
+                function: reader.read_u32::<BigEndian>()?,
+                arity: reader.read_u32::<BigEndian>()?,
+                label: reader.read_u32::<BigEndian>()?,
+                index: reader.read_u32::<BigEndian>()?,
+                num_free: reader.read_u32::<BigEndian>()?,
+                old_uniq: reader.read_u32::<BigEndian>()?,
             });
         }
         Ok(FunTChunk { functions })
     }
     fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
-        try!(writer.write_u32::<BigEndian>(self.functions.len() as u32));
+        writer.write_u32::<BigEndian>(self.functions.len() as u32)?;
         for f in &self.functions {
-            try!(writer.write_u32::<BigEndian>(f.function));
-            try!(writer.write_u32::<BigEndian>(f.arity));
-            try!(writer.write_u32::<BigEndian>(f.label));
-            try!(writer.write_u32::<BigEndian>(f.index));
-            try!(writer.write_u32::<BigEndian>(f.num_free));
-            try!(writer.write_u32::<BigEndian>(f.old_uniq));
+            writer.write_u32::<BigEndian>(f.function)?;
+            writer.write_u32::<BigEndian>(f.arity)?;
+            writer.write_u32::<BigEndian>(f.label)?;
+            writer.write_u32::<BigEndian>(f.index)?;
+            writer.write_u32::<BigEndian>(f.num_free)?;
+            writer.write_u32::<BigEndian>(f.old_uniq)?;
         }
         Ok(())
     }
@@ -448,13 +448,13 @@ impl Chunk for AttrChunk {
     where
         Self: Sized,
     {
-        try!(aux::check_chunk_id(id, b"Attr"));
+        aux::check_chunk_id(id, b"Attr")?;
         let mut buf = Vec::new();
-        try!(reader.read_to_end(&mut buf));
+        reader.read_to_end(&mut buf)?;
         Ok(AttrChunk { term: buf })
     }
     fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
-        try!(writer.write_all(&self.term));
+        writer.write_all(&self.term)?;
         Ok(())
     }
 }
@@ -478,13 +478,13 @@ impl Chunk for CInfChunk {
     where
         Self: Sized,
     {
-        try!(aux::check_chunk_id(id, b"CInf"));
+        aux::check_chunk_id(id, b"CInf")?;
         let mut buf = Vec::new();
-        try!(reader.read_to_end(&mut buf));
+        reader.read_to_end(&mut buf)?;
         Ok(CInfChunk { term: buf })
     }
     fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
-        try!(writer.write_all(&self.term));
+        writer.write_all(&self.term)?;
         Ok(())
     }
 }
@@ -507,13 +507,13 @@ impl Chunk for AbstChunk {
     where
         Self: Sized,
     {
-        try!(aux::check_chunk_id(id, b"Abst"));
+        aux::check_chunk_id(id, b"Abst")?;
         let mut buf = Vec::new();
-        try!(reader.read_to_end(&mut buf));
+        reader.read_to_end(&mut buf)?;
         Ok(AbstChunk { term: buf })
     }
     fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
-        try!(writer.write_all(&self.term));
+        writer.write_all(&self.term)?;
         Ok(())
     }
 }
@@ -546,13 +546,13 @@ impl Chunk for DbgiChunk {
     where
         Self: Sized,
     {
-        try!(aux::check_chunk_id(id, b"Dbgi"));
+        aux::check_chunk_id(id, b"Dbgi")?;
         let mut buf = Vec::new();
-        try!(reader.read_to_end(&mut buf));
+        reader.read_to_end(&mut buf)?;
         Ok(DbgiChunk { term: buf })
     }
     fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
-        try!(writer.write_all(&self.term));
+        writer.write_all(&self.term)?;
         Ok(())
     }
 }
@@ -596,13 +596,13 @@ impl Chunk for DocsChunk {
     where
         Self: Sized,
     {
-        try!(aux::check_chunk_id(id, b"Docs"));
+        aux::check_chunk_id(id, b"Docs")?;
         let mut buf = Vec::new();
-        try!(reader.read_to_end(&mut buf));
+        reader.read_to_end(&mut buf)?;
         Ok(DocsChunk { term: buf })
     }
     fn encode_data<W: Write>(&self, mut writer: W) -> Result<()> {
-        try!(writer.write_all(&self.term));
+        writer.write_all(&self.term)?;
         Ok(())
     }
 }
@@ -659,21 +659,21 @@ impl Chunk for StandardChunk {
     {
         use self::StandardChunk::*;
         match id {
-            b"Atom" => Ok(Atom(try!(AtomChunk::decode_data(id, reader)))),
-            b"AtU8" => Ok(Atom(try!(AtomChunk::decode_data(id, reader)))),
-            b"Code" => Ok(Code(try!(CodeChunk::decode_data(id, reader)))),
-            b"StrT" => Ok(StrT(try!(StrTChunk::decode_data(id, reader)))),
-            b"ImpT" => Ok(ImpT(try!(ImpTChunk::decode_data(id, reader)))),
-            b"ExpT" => Ok(ExpT(try!(ExpTChunk::decode_data(id, reader)))),
-            b"LitT" => Ok(LitT(try!(LitTChunk::decode_data(id, reader)))),
-            b"LocT" => Ok(LocT(try!(LocTChunk::decode_data(id, reader)))),
-            b"FunT" => Ok(FunT(try!(FunTChunk::decode_data(id, reader)))),
-            b"Attr" => Ok(Attr(try!(AttrChunk::decode_data(id, reader)))),
-            b"CInf" => Ok(CInf(try!(CInfChunk::decode_data(id, reader)))),
-            b"Abst" => Ok(Abst(try!(AbstChunk::decode_data(id, reader)))),
-            b"Dbgi" => Ok(Dbgi(try!(DbgiChunk::decode_data(id, reader)))),
-            b"Docs" => Ok(Docs(try!(DocsChunk::decode_data(id, reader)))),
-            _ => Ok(Unknown(try!(RawChunk::decode_data(id, reader)))),
+            b"Atom" => Ok(Atom(AtomChunk::decode_data(id, reader)?)),
+            b"AtU8" => Ok(Atom(AtomChunk::decode_data(id, reader)?)),
+            b"Code" => Ok(Code(CodeChunk::decode_data(id, reader)?)),
+            b"StrT" => Ok(StrT(StrTChunk::decode_data(id, reader)?)),
+            b"ImpT" => Ok(ImpT(ImpTChunk::decode_data(id, reader)?)),
+            b"ExpT" => Ok(ExpT(ExpTChunk::decode_data(id, reader)?)),
+            b"LitT" => Ok(LitT(LitTChunk::decode_data(id, reader)?)),
+            b"LocT" => Ok(LocT(LocTChunk::decode_data(id, reader)?)),
+            b"FunT" => Ok(FunT(FunTChunk::decode_data(id, reader)?)),
+            b"Attr" => Ok(Attr(AttrChunk::decode_data(id, reader)?)),
+            b"CInf" => Ok(CInf(CInfChunk::decode_data(id, reader)?)),
+            b"Abst" => Ok(Abst(AbstChunk::decode_data(id, reader)?)),
+            b"Dbgi" => Ok(Dbgi(DbgiChunk::decode_data(id, reader)?)),
+            b"Docs" => Ok(Docs(DocsChunk::decode_data(id, reader)?)),
+            _ => Ok(Unknown(RawChunk::decode_data(id, reader)?)),
         }
     }
     fn encode_data<W: Write>(&self, writer: W) -> Result<()> {
@@ -717,13 +717,13 @@ mod aux {
         }
         pub fn decode<R: io::Read>(mut reader: R) -> io::Result<Self> {
             let mut id = [0; 4];
-            try!(reader.read_exact(&mut id));
-            let size = try!(reader.read_u32::<BigEndian>());
+            reader.read_exact(&mut id)?;
+            let size = reader.read_u32::<BigEndian>()?;
             Ok(Header::new(&id, size))
         }
         pub fn encode<W: io::Write>(&self, mut writer: W) -> io::Result<()> {
-            try!(writer.write_all(&self.chunk_id));
-            try!(writer.write_u32::<BigEndian>(self.data_size));
+            writer.write_all(&self.chunk_id)?;
+            writer.write_u32::<BigEndian>(self.data_size)?;
             Ok(())
         }
     }
@@ -732,9 +732,9 @@ mod aux {
         (4 - data_size % 4) % 4
     }
 
-    pub fn check_chunk_id(passed: &Id, expected: &Id) -> ::Result<()> {
+    pub fn check_chunk_id(passed: &Id, expected: &Id) -> crate::Result<()> {
         if passed != expected {
-            Err(::Error::UnexpectedChunk {
+            Err(crate::Error::UnexpectedChunk {
                 id: *passed,
                 expected: *expected,
             })
