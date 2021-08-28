@@ -1,7 +1,7 @@
 [package]
 edition = "2018"
 name = "beam_file"
-version = "0.2.4"
+version = "0.3.0"
 authors = ["Takeru Ohta <phjgt308@gmail.com>"]
 description = "Library for processing Erlang BEAM file"
 homepage = "https://github.com/sile/beam_file"
