@@ -1,5 +1,5 @@
 [package]
-edition = "2018"
+edition = "2021"
 name = "beam_file"
 version = "0.3.0"
 authors = ["Takeru Ohta <phjgt308@gmail.com>"]

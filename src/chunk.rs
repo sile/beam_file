@@ -113,14 +113,13 @@ impl Chunk for AtomChunk {
         Self: Sized,
     {
         // This chunk can be either Atom or AtU8
-        let unicode;
-        match aux::check_chunk_id(id, b"Atom") {
+        let unicode = match aux::check_chunk_id(id, b"Atom") {
             Err(_) => {
                 aux::check_chunk_id(id, b"AtU8")?;
-                unicode = true;
+                true
             }
-            Ok(_) => unicode = false,
-        }
+            Ok(_) => false,
+        };
         let count = reader.read_u32::<BigEndian>()? as usize;
         let mut atoms = Vec::with_capacity(count);
         for _ in 0..count {
