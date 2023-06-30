@@ -96,7 +96,7 @@ impl Chunk for RawChunk {
 #[derive(Debug, PartialEq, Eq)]
 pub struct AtomChunk {
     // Whether or not this Atom chunk contains UTF-8 atoms
-    is_unicode: bool,
+    pub is_unicode: bool,
     /// The list of atoms contained in a BEAM file.
     pub atoms: Vec<parts::Atom>,
 }
